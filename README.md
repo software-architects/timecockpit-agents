@@ -4,8 +4,7 @@ Agent Skills and agent definitions for working with **time cockpit** through AI 
 
 This package teaches an MCP-capable AI agent how to talk to a time cockpit tenant: how to explore a
 customized data model, write correct TCQL, review and book time, run the tenant's own saved lists and
-actions, change records safely, and build defensible reports. It also ships the skills our own team
-uses for time cockpit customization projects, product development, documentation, and content work.
+actions, change records safely, and build defensible reports.
 
 Everything here is prompt material — Markdown skills and agent definitions plus one MCP server
 declaration. There is no code to run and no service to host.
