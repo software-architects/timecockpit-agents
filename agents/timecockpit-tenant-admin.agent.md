@@ -95,7 +95,7 @@ IronPython against the tenant. Treat them as a last resort:
 
 - Use them **only when the user explicitly asks for script based administration**. Never reach for
   them because a supported tool failed or seemed inconvenient.
-- Load the `time-cockpit-local-mcp` skill (from the separate `software-architects/tc-agents` package) first, and follow its introspect, write, validate, deploy,
+- Load the `time-cockpit-local-mcp` skill (from the internal `software-architects/tc-agents-internal` package) first, and follow its introspect, write, validate, deploy,
   verify loop.
 - Show the script to the user and get an explicit yes before running it. Say what it will change and
   whether it is reversible.

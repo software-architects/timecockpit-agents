@@ -152,7 +152,7 @@ This host is a **trusted administrative** surface. `execute_script_literal` and
 `execute_script_file` run arbitrary IronPython against the live tenant with the desktop user's full
 rights, and `get_resource` plus the native resources expose the whole visible model. They are
 mutating, so `--mcp-access readonly` hides the script tools. Point an agent here only when the work
-genuinely needs it, and follow the `time-cockpit-local-mcp` skill (from the separate `software-architects/tc-agents` package) for using those tools safely.
+genuinely needs it, and follow the `time-cockpit-local-mcp` skill (from the internal `software-architects/tc-agents-internal` package) for using those tools safely.
 
 ## 9. Installing these skills with apm
 
@@ -179,4 +179,4 @@ it.
   `timecockpit-reporting` (totals, budgets, utilization), `timecockpit-tcql` (ad-hoc queries),
   `timecockpit-model-discovery` (what this tenant's model actually looks like),
   `timecockpit-record-management` (create, update, delete), `timecockpit-lists-and-actions`
-  (named lists and model actions), and `time-cockpit-local-mcp` from the separate `software-architects/tc-agents` package (administrative script execution).
+  (named lists and model actions), and `time-cockpit-local-mcp` from the internal `software-architects/tc-agents-internal` package (administrative script execution).

@@ -78,7 +78,7 @@ one from its description; you can also name one explicitly ("use the timecockpit
 
 The administrative scripting skill `time-cockpit-local-mcp` (IronPython migrations and model
 introspection through the local host, Windows only) and the internal customization, documentation and
-content skills live in the separate `software-architects/tc-agents` package.
+content skills live in the team-internal `software-architects/tc-agents-internal` package.
 
 ## Agents
 
