@@ -3,7 +3,7 @@ name: timecockpit-lists-and-actions
 description: Discovers and runs a time cockpit tenant's named lists (saved views) with get_lists, describe_list and execute_list, and its model actions with get_actions and execute_action, including the confirmation handshake for state-changing actions. Use when a user asks for a saved view or "the list we use for X", wants report-like data that already exists in the app, or wants to run a model action such as creating an invoice or closing a project.
 compatibility: Any agent connected to a time cockpit MCP server (remote or local host). All five tools depend on optional deployment capabilities and may be absent; execute_action is additionally unavailable in read-only sessions and execute_list and execute_action in own-data sessions.
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # time cockpit Lists and Actions
@@ -48,8 +48,8 @@ lists the acting user is permitted to see are returned.
 ### describe_list
 
 Columns only, derived from a **5-row sample** — it never performs a full run. So a column whose
-sampled value was null comes back as `unknown`; an empty sample yields no columns plus a warning
-telling you to supply parameters; and `rows` is always empty, because `describe_list` never
+sampled value was null comes back as `Unknown`; an empty sample yields only the two stable columns
+(`objectUuid`, `displayValue`) plus a warning telling you to supply parameters; and `rows` is always empty, because `describe_list` never
 returns data. Pass the parameters you intend to use, so the sample is representative.
 
 ### execute_list
@@ -81,6 +81,9 @@ execute_list  { "listName": "APP_UnbilledTimesheetsList",
 Prefer a **list** when the user names one or names a business view; when the tenant's own
 definition already encodes rules you would otherwise have to reinvent (what counts as unbilled,
 how it is grouped and sorted); or when the answer must match what the user sees in the app.
+Also run `get_lists` with a filter for the user's own wording even when no shipped entity seems to
+cover the concept: a tenant-defined (`USR_`) list is exactly how such gaps usually get closed (see
+`timecockpit-model-discovery`, section 7).
 Prefer **TCQL** (`timecockpit-tcql`) when `get_lists` turns up nothing matching, when you need a
 projection, aggregation or join the list does not produce, or when you need a shape that stays
 stable regardless of later edits to the list. Do not re-implement a list you found — run it. And
@@ -92,25 +95,29 @@ never try to change a list definition here; lists are signed artifacts owned by 
 
 ```jsonc
 {
-  "columns": [ { "name": "APP_BeginTime", "label": "Begin", "dataType": "DateTime", "isCustom": false } ],
-  "rows":    [ { "objectUuid": "…", "displayValue": "Review", "APP_BeginTime": "2026-01-05T08:30:00" } ],
+  "columns": [ { "name": "USR_BeginTime", "dataType": "DateTime", "isCustom": true } ],
+  "rows":    [ { "objectUuid": "…", "USR_BeginTime": "2026-01-05T08:30:00" } ],
   "count": 1, "truncated": false, "warnings": []
 }
 ```
 
-- `columns` describes **this** response — the tenant's model decides the shape, so read it from
-  `columns` instead of assuming. Each column carries `name`, `label`, `dataType`, `isCustom`,
-  and `relatedEntity` for relations.
-- In `rows`, only `objectUuid` and `displayValue` are guaranteed. Everything else, shipped
-  `APP_` members included, appears flat under its technical name. A relation column carries the
-  referenced record's display value; follow up with `describe_entity` or a targeted query when
-  you need more of that record.
+- A named list runs as a `New With` query internally, so `columns` are **inferred from the
+  returned values**, not typed from the model: no `label`, `dataType` guessed from the data
+  (`Unknown` for an all-null column, `Relation` for a nested object), and every column name gets
+  the tenant `USR_` prefix regardless of whether it is a real tenant extension (see
+  `timecockpit-tcql` for why). Read `columns` instead of assuming a name or type.
+- `rows` normally carry `objectUuid` (feed it into an action's `inputSet`), but `displayValue` is
+  typically `null` or absent — anonymous projections have no display property. A relation column
+  reads as `{ "objectUuid": …, "displayValue": … }` or `null` — never a bare UUID or a bare
+  string; its own `displayValue` is likewise `null` or absent when the related record was not
+  loaded. Use `.objectUuid` for lookups/`inputSet` entries and `.displayValue` for presentation,
+  following up with `describe_entity` or a targeted query if the user needs a name that is missing.
 - `count` is the number of rows returned; `truncated: true` means data was cut off. Never
   present a truncated result as a total or as a complete list. `warnings` is informational —
   surface anything that changes how the numbers should be read.
 
-When reporting to a user, use the column `label` and the list's `friendlyName`; keep technical
-names for follow-up calls. `objectUuid` values are what you feed into an action's `inputSet`.
+When reporting to a user, prefer the list's `friendlyName`, and a human-friendly heading with the
+`USR_` prefix dropped for each column; keep technical names for follow-up calls.
 
 ## 5. Actions: discover, then execute
 

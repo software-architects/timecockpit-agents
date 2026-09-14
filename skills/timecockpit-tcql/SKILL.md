@@ -3,7 +3,7 @@ name: timecockpit-tcql
 description: Writes and runs read-only TCQL (Time Cockpit Query Language) queries through the MCP tool execute_tcql_query and interprets the TabularResult it returns. Use for ad-hoc data questions, reporting and totals across customers, projects, tasks, users or periods, for cross-entity lookups and resolving a record UUID from a code or name, and whenever a TCQL query was rejected, returned no rows, or came back with unexpected column names.
 compatibility: Requires a connected time cockpit MCP server (remote or local stdio host) exposing execute_tcql_query, get_entities and describe_entity. execute_tcql_query is hidden and rejected when the session is restricted to own data (Scope=OwnData) — use get_timesheets there instead. Tool names may carry a client prefix.
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Time Cockpit TCQL
@@ -35,9 +35,9 @@ Related skills: `timecockpit-time-tracking` (own hours, booking), `timecockpit-r
 2. **Write one narrow query.** Always a `Where` clause that bounds the result by date, user,
    project, customer or another business scope, and always an explicit `Select Top(N)` with the
    smallest N that answers the question.
-3. **Project only the columns you will actually show.** `Select T` returns every scalar property
-   of the entity — a lot of tokens per row, and it silently drops the related values you probably
-   wanted anyway.
+3. **Project only the columns you will actually show.** `Select T` returns every scalar and
+   relation property of the entity as a full row — a lot of tokens per row when you only need a
+   few fields.
 4. **Run it, then read the envelope**: `count`, `truncated`, `warnings`, `columns`.
 5. **If truncated, do not page.** Narrow the filter or aggregate instead (see §7).
 
@@ -145,22 +145,31 @@ Never report a total computed from a `truncated: true` result.
 
 ```jsonc
 { "columns": [ { "name": "USR_Hours", "dataType": "Number", "isCustom": true } ],
-  "rows":    [ { "objectUuid": "…", "displayValue": "…", "USR_Hours": 12.5 } ],
+  "rows":    [ { "USR_Hours": 12.5 } ],
   "count": 1, "truncated": false, "warnings": [ "…" ] }
 ```
 
 - `columns` describes **this** response: `name` (exactly as it appears on every row), `dataType`,
   `isCustom` (true for `USR_` names — which for `New With` projections means *all* of them, not
-  just tenant extensions). For TCQL results `dataType` is inferred from the returned values, so an
-  all-null column reports `Unknown` and a string that happens to parse as a date reports
-  `DateTime`. Do not treat it as model metadata; `describe_entity` is the authority.
-- Zero rows means **`columns` is empty too**. That is "no matching data", not a broken query.
+  just tenant extensions). For `Select <Alias>` (whole record) `dataType` and `label` are typed
+  from the model, including `Relation` with `relatedEntity`. For a `New With { }` projection there
+  is no model to type against, so `dataType` is inferred from the returned values instead: an
+  all-null column reports `Unknown`, a nested object reports `Relation`, and a string that happens
+  to parse as a date reports `DateTime`. Do not treat inferred columns as model metadata;
+  `describe_entity` is the authority.
+- Zero rows means `columns` holds only `objectUuid` and `displayValue`. That is "no matching
+  data", not a broken query.
 - `objectUuid` is the real record key only for `Select <Alias>`. For a `New With { }` projection it
-  is a generated per-row id that changes between identical runs — useless as a key. Project the
-  primary key explicitly (`:ObjectUuid(T)`, or `T.APP_TimesheetUuid`) whenever the user may want to
-  act on a row afterwards.
-- `displayValue` is likewise the record's display value only for `Select <Alias>`; for a projection
-  it is derived and can even echo the first projected member. Treat it as informational.
+  is a generated per-row id that changes on every run — project the key explicitly
+  (`:ObjectUuid(T)`, or `T.APP_TimesheetUuid`) whenever the user may want to act on a row afterwards.
+- `displayValue` is likewise the record's real display value only for `Select <Alias>`; for a
+  `New With { }` projection it is `null` or absent, because an anonymous projection has no display
+  property.
+- **Reading a relation value:** on a `Select <Alias>` row, `row.APP_Project` (etc.) is
+  `{ "objectUuid": …, "displayValue": … }` or `null` — never a bare UUID. Use `.objectUuid` for
+  lookups and further queries, `.displayValue` for presentation. If `.displayValue` is `null` or
+  absent, the related record was not loaded; resolve it with a follow-up query only if the user
+  needs the name.
 - `count` is the number of rows returned, **not** the number of matches. `truncated: true` plus a
   warning naming the row limit means data was left behind; a warning saying the total is unknown
   means the result exactly filled the cap and may or may not be complete.
@@ -179,8 +188,9 @@ Errors are deliberately terse and never echo the query. Walk this list:
 1. A rejected keyword or prefix — comment (`//`, `/* */`), `SYS_` token, `Skip`/`Take`,
    an `APP_`-prefixed alias in `New With`, unbalanced parentheses or quotes.
 2. A property or entity that does not exist in **this** tenant — re-run `describe_entity` for both
-   the source entity and every navigated relation. (`APP_Department` has only `APP_Code` and
-   `APP_Description`; `APP_Department.APP_Fullname` fails.)
+   the source entity and every navigated relation. (The shipped `APP_Department` has only
+   `APP_Code` and `APP_Description`, so `APP_Department.APP_Fullname` fails; a tenant may have
+   added its own `USR_` properties, which `describe_entity` reveals.)
 3. A parameter typing problem. Strings, booleans and decimals are reliable. If a comparison
    against a `@parameter` fails, fall back to a literal in the query text: a date range is safe as
    `#2026-09-01#` because you construct it, and write numbers with a decimal point (`10.0`).

@@ -26,7 +26,7 @@ Before you reuse one:
 | `APP_Task` | `APP_TaskUuid` | `APP_Fullname`* | `APP_Code`, `APP_Description`, `APP_CodeAndDescription`*, `APP_Closed`, `APP_Budget`, `APP_BudgetInHours`, `APP_Billable`*; relation `APP_Project` |
 | `APP_Customer` | `APP_CustomerUuid` | `APP_CompanyName` | `APP_Code`, `APP_Town`, `APP_ZipCode`, `APP_Email`, `APP_HourlyRate`, `APP_VatID`; relation `APP_Country` |
 | `APP_UserDetail` | `APP_UserDetailUuid` | `APP_Fullname`* | `APP_Username`, `APP_Firstname`, `APP_Lastname`, `APP_IsEnabled`, `APP_IsHidden`, `APP_IsTenantAdmin`, `APP_WeeklyHoursOfWork`, `APP_DateOfJoining`, `APP_DateOfSeparation`; relations `APP_Department`, `APP_LegalHolidayCalendar` |
-| `APP_Department` | `APP_DepartmentUuid` | `APP_Code` | `APP_Code`, `APP_Description` — **that is all**; there is no `APP_Fullname` |
+| `APP_Department` | `APP_DepartmentUuid` | `APP_Code` | `APP_Code`, `APP_Description` — no shipped `APP_Fullname`; a tenant may still add `USR_` properties |
 | `APP_Vacation` | `APP_VacationUuid` | `APP_Description` | `APP_BeginTime` (first day), `APP_EndTime` (last day), `APP_IsWholeDay`, `APP_SpecialLeave`, `APP_DurationInHours`*; relation `APP_UserDetail` |
 | `APP_Invoice` | `APP_InvoiceUuid` | `APP_InvoiceNumber` | `APP_InvoiceDate`, `APP_InvoiceIsSent`, `APP_PaymentReceivedOn`, `APP_ServiceStartDate`, `APP_ServiceEndDate`, `APP_ReadOnlyRevenue`*, `APP_ReadOnlyGrossRevenueWithDiscount`*, `APP_Period`*; relation `APP_Project` |
 
@@ -110,8 +110,9 @@ Select Top(50) New With {
 }
 ```
 
-`parameters: {"@Code": "PROJ-001"}`. `.Id` is the real timesheet key — the envelope's `objectUuid`
-is a generated id for projected rows and must not be used to identify a record.
+`parameters: {"@Code": "PROJ-001"}`. `.Id` is the real timesheet key — the `objectUuid` of a
+`New With { … }` row is only a generated per-row id that changes on every run, so project the real
+key explicitly whenever it will be used to identify a record.
 
 ## 6. Projects of a customer
 

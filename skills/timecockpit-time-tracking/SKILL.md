@@ -3,7 +3,7 @@ name: timecockpit-time-tracking
 description: Reviews, summarizes, and books a user's own working time in time cockpit over the connected MCP server. Use when someone asks what they worked on, wants a daily, weekly, or per-project summary of their hours, wants to find gaps, overlaps, or duplicate bookings in their timesheet, wants to book hours on a project or task, or wants to correct their recorded time.
 compatibility: Requires a connected time cockpit MCP server (remote or local stdio host) exposing get_current_user, get_timesheets and describe_entity. create_timesheet is hidden and rejected when the session runs with read-only access; execute_tcql_query is hidden when the session is restricted to own data.
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Time Cockpit Time Tracking
@@ -60,6 +60,11 @@ is true, split the period into smaller ranges instead of reporting an incomplete
 returned `columns` array to see what you actually got — the property set is tenant-specific, so
 never assume a column exists.
 
+Relations (`APP_Project`, `APP_Task`, `APP_UserDetail`, …) come back as reference objects,
+`{ "objectUuid": …, "displayValue": … }`, or `null` — never a bare UUID. Use `.objectUuid` for
+lookups or when passing an id to another tool, and `.displayValue` for presentation; it is `null`
+when the related record was not loaded.
+
 ## 3. Summarize
 
 - Prefer the shipped calculated property **`APP_DurationInHours`** over doing arithmetic. Fall back
@@ -68,7 +73,8 @@ never assume a column exists.
   08:30 in the user's own working day. Do not convert to UTC, do not add `Z` or an offset, and do
   not restate times in another zone.
 - Group by day using the date part of `APP_BeginTime` (or `APP_DateActual`, a shipped calculated
-  date). Group per project using `APP_ProjectCodeActual` or the project relation column.
+  date). Group per project using `APP_ProjectCodeActual`, or `APP_Project.displayValue` from the
+  relation object.
 - State totals in hours with one or two decimals *and* say which period and which filters produced
   them. Report the count of entries alongside the total so the user can sanity-check.
 - Entries with `APP_IsDurationTimesheet = true` are duration-only bookings; their begin/end times
@@ -94,7 +100,7 @@ Work from one sorted-ascending day at a time (see
 
 - **Preferred, and the only way in own-data scope:** read the user's recent bookings for that
   project with `get_timesheets` (`projectCode` / `descriptionContains`) and reuse the project and
-  task ids from a matching row.
+  task ids from a matching row: `row.APP_Project.objectUuid` and `row.APP_Task.objectUuid`.
 - **Otherwise** use one narrow parameterized `execute_tcql_query`, e.g.
   `From P In APP_Project Where P.APP_Code = @Code Select Top(5) New With { P.APP_ProjectUuid, P.APP_Code, P.APP_ProjectName }`
   with `{"@Code": "…"}`. Never interpolate user input into the query text. Tasks work the same way

@@ -3,7 +3,7 @@ name: timecockpit-record-management
 description: Creates, updates and deletes time cockpit records through the MCP tools create_entity, update_entity and delete_entity, including the mandatory describe_entity discovery step, the confirmed=true handshake and a verification re-read. Use when the user asks to add, change, correct, close, archive or delete a project, customer, task, user, absence, timesheet or any tenant-defined record, or when a mutation was rejected as invalid, read-only or unconfirmed. Not for building analytical reports (see timecockpit-reporting).
 compatibility: Requires an AI client connected to a time cockpit MCP server (remote or local host) whose session is not in ReadOnly access or OwnData scope. Tool names may carry a client prefix.
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Time Cockpit Record Management
@@ -35,8 +35,10 @@ Use `get_entities(nameContains: '...')` if you do not know the exact name. Never
 From the metadata, read off:
 
 - `isRequired` — must be present in a create payload.
-- `isRelation` + `relatedEntity` — the value is a **UUID of a record in that entity**, never a
-  code, name or label. Look the UUID up first with `execute_tcql_query`.
+- `isRelation` + `relatedEntity` — the **write** value is a UUID string, or `null` to clear; never a
+  code, name or label. Look the UUID up first with `execute_tcql_query`, or take it from a row you
+  already have: a relation member on a row (`row.APP_Project`, etc.) reads as
+  `{ "objectUuid": …, "displayValue": … }` or `null` — use its `.objectUuid`.
 - `isCalculated`, `isReadOnly`, `isPrimaryKey` — rejected by the server; never send them.
 - `isCustom` (`USR_` prefix) — tenant-specific extensions. They may be required and often carry
   the tenant's real business meaning; treat them as first-class, not optional extras.

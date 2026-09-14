@@ -34,6 +34,10 @@ Related entities: `APP_Project` has `APP_Code` ("Project Code"), `APP_ProjectNam
 
 ## Model validation rules the server enforces
 
+This is the **shipped** rule set. A tenant may have added its own validation rules or triggers on
+`APP_Timesheet`, so treat a rejection you cannot map to items 1-7 as one of those, not as a bug,
+and relay the server's message verbatim.
+
 Anticipate these instead of letting the create fail:
 
 1. End time must be after begin time.
@@ -79,7 +83,9 @@ get_timesheets { descriptionContains: "<keyword>", top: 20,
                  fields: ["APP_BeginTime","APP_Description","APP_ProjectCodeActual"] }
 ```
 
-Then reuse the project/task ids from the row the user recognizes.
+Then reuse the project/task ids from the row the user recognizes:
+`row.APP_Project.objectUuid` / `row.APP_Task.objectUuid` (each is `{objectUuid, displayValue}` or
+`null`).
 
 Default scope, exact code:
 

@@ -324,11 +324,16 @@ for whoever runs it.
 
 ## 9. Anonymous vs typed projections
 
-| Form | Column names | `objectUuid` |
-|---|---|---|
-| `Select T` | the entity's own scalar property names (`APP_*`, `USR_*`); relations are **not** returned as columns | the record's real primary key |
-| `Select New With { … }` | `USR_` + name with the ownership prefix stripped (`T.APP_Description` → `USR_Description`, `.Hours = …` → `USR_Hours`) | a **generated** per-row id, different on every run |
-| `Select New APP_Project With { … }` | member names exactly as declared | typed result; rarely useful read-only |
+| Form | Column names | `objectUuid` | `displayValue` |
+|---|---|---|---|
+| `Select T` | the entity's own scalar **and relation** property names (`APP_*`, `USR_*`); the primary key itself is not repeated as a member | the record's real primary key | the record's default display value |
+| `Select New With { … }` | `USR_` + name with the ownership prefix stripped (`T.APP_Description` → `USR_Description`, `.Hours = …` → `USR_Hours`) | a **generated** per-row id, different on every run — not a record key | `null` or absent — an anonymous projection has no display property |
+| `Select New APP_Project With { … }` | member names exactly as declared | typed result; rarely useful read-only | typed result; rarely useful read-only |
+
+A relation member of a `Select T` row (e.g. `T.APP_Project`) is a reference object,
+`{ "objectUuid": …, "displayValue": … }`, or `null` when the relation is empty — never a bare
+UUID. Its `displayValue` is `null` or absent when the related record was not loaded (no
+`.Include(...)` / navigation into it).
 
 Consequences:
 
@@ -337,7 +342,8 @@ Consequences:
 - Writing an ownership prefix on an alias (`.APP_Total = …`) is a semantic error: *"You cannot use
   ownership prefixes in a select new with clause."*
 - In a `.Alias = <identifier>` member, the identifier must be the source alias itself.
-- To hand the user something they can act on later, project the key explicitly:
+- The `objectUuid` of a `Select New With { … }` row is a generated per-row id, not the record's
+  key; to hand the user something they can act on later, project the key explicitly:
   `.Id = :ObjectUuid(T)` or `T.APP_TimesheetUuid`.
 
 ---
@@ -365,6 +371,25 @@ Only `Select` queries are executable; TCQL has no INSERT/UPDATE/DELETE form. Mut
 
 ## 11. Result envelope (`TabularResult`)
 
+`Select T` (whole record) — columns are typed from the model, including the relation member:
+
+```jsonc
+{
+  "columns": [
+    { "name": "APP_Code", "label": "Code", "dataType": "String", "isCustom": false },
+    { "name": "APP_Customer", "label": "Customer", "dataType": "Relation", "relatedEntity": "APP_Customer", "isCustom": false }
+  ],
+  "rows": [
+    { "objectUuid": "…", "displayValue": "PROJ-001", "APP_Code": "PROJ-001", "APP_Customer": { "objectUuid": "…", "displayValue": "Demo Customer" } }
+  ],
+  "count": 1,
+  "truncated": false,
+  "warnings": [ "…" ]
+}
+```
+
+`Select New With { … }` (anonymous projection) — columns are inferred from the returned values:
+
 ```jsonc
 {
   "columns": [
@@ -372,7 +397,7 @@ Only `Select` queries are executable; TCQL has no INSERT/UPDATE/DELETE form. Mut
     { "name": "USR_Hours",   "dataType": "Number",  "isCustom": true }
   ],
   "rows": [
-    { "objectUuid": "…", "displayValue": "…", "USR_Project": "PROJ-001", "USR_Hours": 12.5 }
+    { "USR_Project": "PROJ-001", "USR_Hours": 12.5 }
   ],
   "count": 1,
   "truncated": false,
@@ -383,16 +408,17 @@ Only `Select` queries are executable; TCQL has no INSERT/UPDATE/DELETE form. Mut
 | Field | Meaning |
 |---|---|
 | `columns[].name` | property name exactly as it appears on every row object |
-| `columns[].label` | human caption — present for typed tools, **absent** for TCQL results |
-| `columns[].dataType` | `Unknown`, `String`, `Number`, `Integer`, `Boolean`, `DateTime`, `Date`, `Time`, `Duration`, `Uuid`, `Relation`, `Binary`. For TCQL it is **inferred from the values**: an all-null column reports `Unknown`, and a string that parses as a date (e.g. `:FormatDateAsPeriod` → `"2026/09"`) reports `DateTime`. |
-| `columns[].isCustom` | true when the name starts with `USR_`. For `New With` projections that is every column, so it does *not* identify tenant extensions there. |
-| `columns[].relatedEntity` | referenced entity for relation columns (typed tools) |
-| `rows[]` | open objects: `objectUuid`, `displayValue`, plus whatever was projected |
+| `columns[].label` | human caption — present when the result entity is known (`Select T`), **absent** for `New With` results |
+| `columns[].dataType` | `Unknown`, `String`, `Number`, `Integer`, `Boolean`, `DateTime`, `Date`, `Time`, `Duration`, `Uuid`, `Relation`, `Binary`. Typed from the model for `Select T`. For `New With` it is **inferred from the values**: an all-null column reports `Unknown`, a nested object reports `Relation`, and a string that parses as a date (e.g. `:FormatDateAsPeriod` → `"2026/09"`) reports `DateTime`. |
+| `columns[].isCustom` | true for tenant (`USR_`) members. For `New With` projections every column name gets the `USR_` prefix, so it does *not* distinguish a real tenant extension from a renamed shipped property there. |
+| `columns[].relatedEntity` | referenced entity for relation columns, typed or inferred |
+| `rows[]` | open objects: `objectUuid` (a generated per-row id for `New With`), `displayValue` (`null` or absent for `New With`), plus whatever was projected. A relation member is `{ "objectUuid": …, "displayValue": … }` or `null`, never a bare UUID; its `displayValue` is `null` or absent when not loaded. |
 | `count` | rows returned — not the number of matches |
 | `truncated` | true when a row or payload limit cut the result |
 | `warnings[]` | non-fatal remarks; a warning names the row limit when the cap definitely bit, or says the exact total is unknown when the result merely filled the cap |
 
-An empty result has **empty `columns` as well** — shape is derived from the payload.
+An empty result carries only the two stable columns, `objectUuid` and `displayValue` — the
+rest of the shape is derived from the returned records.
 
 Values: date/times are tenant-local wall clock with no offset; durations are decimal hours;
 missing values are JSON `null`; blob properties should never be projected.

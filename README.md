@@ -6,6 +6,11 @@ This package teaches an MCP-capable AI agent how to talk to a time cockpit tenan
 customized data model, write correct TCQL, review and book time, run the tenant's own saved lists and
 actions, change records safely, and build defensible reports.
 
+No two tenants share the same model. The shipped `APP_` entities, lists and actions are normally
+present, but administrators add `USR_` entities, properties, relations, lists and actions, and may
+rename captions or hide shipped artifacts. Every skill here therefore discovers names against the
+live tenant before using them; see `timecockpit-model-discovery`.
+
 Everything here is prompt material — Markdown skills and agent definitions plus one MCP server
 declaration. There is no code to run and no service to host.
 

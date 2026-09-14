@@ -3,7 +3,7 @@ name: timecockpit-model-discovery
 description: Explores a time cockpit tenant's customized data model over MCP with get_entities, describe_entity, get_environment and the local data model resources, and turns the result into technical names that actually exist. Use when a user asks which fields an entity has, how customers, projects, tasks and timesheets are related, what a tenant administrator customized, or before writing TCQL, a field projection, a list parameter, or any create, update or delete call.
 compatibility: Any agent connected to a time cockpit MCP server (remote HTTP host or local stdio host). The timecockpit:// resources and the get_resource fallback exist on the local host only.
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # time cockpit Model Discovery
@@ -19,8 +19,13 @@ Tool names here are bare. Clients prefix them with the server name, for example
 ## 1. Discovery order
 
 1. `get_environment` (or `get_current_user`) — confirms which environment and acting user the
-   session is bound to. It reports identity, not permissions; never infer from it what the user
-   may read or write. The server authorizes every call independently.
+   session is bound to. `get_environment` returns `currentUser` (the acting user's
+   `APP_UserDetail` record), `globalSettings` (the tenant's `APP_GlobalSettings` record, or
+   `null` when not readable) and `namedSets` (evaluated named sets keyed by name, e.g.
+   `APP_CurrentUserRoles`; a tenant may define its own — read the keys rather than assume only
+   that one). Records use the same shape as query rows: relations are reference objects,
+   credential-like members are omitted. It reports identity, not permissions; never infer from it
+   what the user may read or write. The server authorizes every call independently.
 2. `get_entities` — the entity inventory. `nameContains` is a case-insensitive substring;
    `customOnly: true` returns only tenant-defined entities.
 3. `describe_entity` — the full shape of one entity. Call it before you write a property name
@@ -100,7 +105,9 @@ through `get_lists` before using it.
 - `timecockpit://datamodel/lists/{listName}` and `.../actions/{actionName}` — full definitions,
   including query or script source.
 - `timecockpit://datamodel/entities/{entityName}/triggers/{triggerName}` — an enabled trigger.
-- `timecockpit://currentUser`, `timecockpit://globalSettings` — safe scalar snapshots.
+- `timecockpit://currentUser`, `timecockpit://globalSettings` — the same records as
+  `get_environment`'s `currentUser`/`globalSettings`: relation members are `{objectUuid,
+  displayValue}` objects (not reduced to bare UUIDs), and credential-like members are omitted.
 
 The index omits property names and source text by design; expand through `describe_entity` or
 the detail resources. Clients that cannot read MCP resources natively pass the same URI to
@@ -125,6 +132,11 @@ paths. Flag any `isCustom` relation as a tenant-specific link.
 **"What did our administrator customize?"** `get_entities { "customOnly": true }` for
 tenant-defined entities, then `describe_entity` on each business entity and list the properties
 where `isCustom` is true.
+
+**"We don't seem to have an entity for X" (attendance, cost centre, tickets, ...):** absence from
+the shipped `APP_` set is not absence from the model. Run `get_entities { "nameContains": "<keyword>" }`
+and `get_entities { "customOnly": true }`, and check `get_lists { "filter": "<keyword>" }` for a
+matching saved view, before telling the user the tenant does not track the concept.
 
 ## 8. Feeding discovery into the rest of the surface
 
