@@ -147,7 +147,9 @@ actions instead: the ones bound to no entity, which `execute_action` runs withou
 That is the only way to discover a standalone action; an entity's listing never includes one you
 could run entity-free, and the standalone listing never includes an entity-bound action. Each entry
 reports `name`, `displayName`, `parameterEntity`, `minimumInputSetSize` and `executeWithoutPrompt`.
-Only actions permitted for the acting user and visible in lists are returned.
+Only actions the acting user holds execute permission for are returned. Desktop UI placement is
+not a filter: an action the app shows no button for is still listed and runnable here if the user
+may execute it.
 
 - Looking for a tenant-wide maintenance or import action and not finding it under any entity? Call
   `get_actions` with no arguments.
