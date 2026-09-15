@@ -1,0 +1,16 @@
+{
+  "name": "time-cockpit",
+  "description": "Skills, agents, and MCP access for working with time cockpit through AI agents.",
+  "owner": {
+    "name": "software architects gmbh",
+    "url": "https://github.com/software-architects"
+  },
+  "plugins": [
+    {
+      "name": "timecockpit",
+      "description": "Skills, agents, and MCP access for working with time cockpit.",
+      "category": "Productivity",
+      "source": "./"
+    }
+  ]
+}

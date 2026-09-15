@@ -1,5 +1,5 @@
-name: timecockpit-agents
-version: 0.1.6
+name: timecockpit
+version: 0.1.5
 description: Skills, agents, and MCP configuration for time cockpit users and administrators working with AI agents.
 author: software architects gmbh
 dependencies:
@@ -14,3 +14,21 @@ dependencies:
       # see skills/timecockpit-mcp-setup/references/client-configs.md.
 includes: auto
 scripts: {}
+
+marketplace:
+  name: time cockpit
+  description: Skills, agents, and MCP access for working with time cockpit through AI agents.
+  owner:
+    name: software architects gmbh
+    url: https://github.com/software-architects
+  build:
+    tagPattern: "v{version}"
+  outputs:
+    claude: {}
+    codex:
+      path: .agents/plugins/marketplace.json
+  packages:
+    - name: timecockpit
+      description: Skills, agents, and MCP access for working with time cockpit.
+      source: ./
+      category: Productivity
