@@ -1,0 +1,27 @@
+{
+  "name": "timecockpit",
+  "version": "0.1.5",
+  "description": "Skills, agents, and MCP access for working with time cockpit.",
+  "author": {
+    "name": "software architects gmbh"
+  },
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "time cockpit",
+    "shortDescription": "Work with time cockpit data and workflows",
+    "longDescription": "Discover the tenant model, query and report on time cockpit data, track working time, and manage records through the time cockpit MCP server.",
+    "developerName": "software architects gmbh",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Review my time bookings for this week.",
+      "Report hours by project for the current month.",
+      "Help me explore the time cockpit data model."
+    ]
+  }
+}
