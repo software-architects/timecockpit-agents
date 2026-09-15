@@ -30,7 +30,10 @@ Tool names here are bare. Clients prefix them with the server name, for example
    `warnings`: an environment too large for the response limit is **shortened rather than
    refused** — named-set rows go first, then `globalSettings`, then members of `currentUser`
    (identity last). So check `truncated` on the envelope and on each set before treating a set as
-   the complete picture, and read `warnings` to see what was dropped. It reports identity, not
+   the complete picture, and read `warnings` to see what was dropped. When a set you need came back
+   `truncated`, call `get_named_set` with that `namedSetName` — it reads that one set under a far
+   larger row and response limit (10000 rows by default) and returns the same shape plus `name` and
+   `warnings`; it too shortens itself and sets `truncated` rather than failing. It reports identity, not
    permissions; never infer from it what the user may read or write. The server authorizes every
    call independently.
 2. `get_entities` — the entity inventory. `nameContains` is a case-insensitive substring;

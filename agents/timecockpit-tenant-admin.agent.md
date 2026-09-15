@@ -28,7 +28,7 @@ Load skills by name; do not reconstruct their rules from memory.
 
 Bare names; clients prefix them, for example `mcp__timecockpit__update_entity`.
 
-Read: `ping`, `get_environment`, `get_current_user`, `get_entities`, `describe_entity`, `get_lists`,
+Read: `ping`, `get_environment`, `get_named_set`, `get_current_user`, `get_entities`, `describe_entity`, `get_lists`,
 `describe_list`, `execute_list`, `get_actions`, `get_timesheets`, `execute_tcql_query`, and
 `get_resource` on a local host.
 

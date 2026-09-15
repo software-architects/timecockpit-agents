@@ -141,10 +141,19 @@ When reporting to a user, prefer the list's `friendlyName`, and a human-friendly
 
 ### get_actions
 
-`entityName` is required — actions are discovered per entity, so establish the entity first
-(`timecockpit-model-discovery`). Each entry reports `name`, `displayName`, `parameterEntity`,
-`minimumInputSetSize` and `executeWithoutPrompt`. Only actions permitted for the acting user and
-visible in lists are returned.
+`entityName` is optional. Supply it — the normal case — and you get that entity's actions, so
+establish the entity first (`timecockpit-model-discovery`). Omit it and you get the **standalone**
+actions instead: the ones bound to no entity, which `execute_action` runs without an `entityName`.
+That is the only way to discover a standalone action; an entity's listing never includes one you
+could run entity-free, and the standalone listing never includes an entity-bound action. Each entry
+reports `name`, `displayName`, `parameterEntity`, `minimumInputSetSize` and `executeWithoutPrompt`.
+Only actions permitted for the acting user and visible in lists are returned.
+
+- Looking for a tenant-wide maintenance or import action and not finding it under any entity? Call
+  `get_actions` with no arguments.
+- If a call with no `entityName` reports that the standalone actions could not be determined, that
+  is a deployment limitation, not an empty result: do not report "there are no standalone actions".
+  Fall back to `get_actions` with an `entityName`.
 
 - `minimumInputSetSize` greater than zero means the action needs at least that many records.
 - `parameterEntity` names a typed parameter entity; run `describe_entity` on it to learn the
@@ -156,19 +165,23 @@ visible in lists are returned.
 
 ### execute_action
 
-Inputs: `actionName` and `entityName` — both **required** — plus `inputSet` (an array of record
+Inputs: `actionName` — **always required** — plus `entityName`, `inputSet` (an array of record
 UUID strings, capped at around 50), `parameter` (a JSON object matching the parameter entity),
 and `confirmed`.
 
-`entityName` is not optional context: actions are authorized per entity, so a call without it is
-rejected with a message telling you to run `get_actions` first. The action name is then resolved
-against exactly the catalog `get_actions` publishes for that entity — guessing a name you did not
-see there fails, it does not reach the tenant. `parameter` is validated against the live parameter
+`entityName` is **required whenever `inputSet` is non-empty, and optional otherwise**. The records
+of an input set belong to an entity and actions are authorized per entity, so a call that passes an
+input set without `entityName` is rejected with a message telling you to run `get_actions` first. A
+standalone action — one with no input set at all — has no entity to name and is authorized against
+the standalone catalog instead (the one `get_actions` lists with no arguments), so omit `entityName`
+there rather than guessing one. Either way the
+action name is resolved against exactly the catalog `get_actions` publishes — guessing a name you
+did not see there fails, it does not reach the tenant. `parameter` is validated against the live parameter
 entity before anything runs: unknown members, calculated or read-only members, the parameter's own
 identifier, `SYS_*` members, and values of the wrong type are all rejected. That is why step 2
 below matters — take the member names from `describe_entity`, do not invent them.
 
-1. `get_actions` on the entity.
+1. `get_actions` on the entity — or with no arguments when you are after a standalone action.
 2. `describe_entity` on `parameterEntity`, if the action declares one.
 3. Collect the record UUIDs — the `objectUuid` values from `execute_list`,
    `execute_tcql_query` or `get_timesheets`.
@@ -226,7 +239,9 @@ explain the operation *before* you call it rather than relying on the server to 
 | --- | --- |
 | tool missing from the tool list | capability off for this deployment/tenant, or a read-only / own-data session |
 | list or action not found | wrong name, or not permitted for this user — re-run `get_lists` / `get_actions`; do not try name variants |
-| "an entity context is required" on `execute_action` | `entityName` was omitted or blank — run `get_actions` for the entity and pass its name |
+| "an entity context is required" on `execute_action` | `entityName` was omitted or blank on a call that passed an `inputSet` — run `get_actions` for the entity and pass its name; a standalone action with no input set needs no `entityName` |
+| "cannot be executed without an entity context" on `execute_action` | the action was called with no `inputSet` and no `entityName`, but it is entity-scoped — pass the entity, or pick one from `get_actions` with no arguments |
+| "could not be determined for this tenant" on `get_actions` / `execute_action` with no `entityName` | this deployment cannot resolve the standalone catalog — not a statement that none exist; use `get_actions` with an `entityName` |
 | action "is not available for entity" | the name is not in that entity's catalog — re-run `get_actions`, do not retry with a variant |
 | a parameter member rejected | it is unknown, calculated, read-only, the identifier, or the wrong type — re-read `describe_entity` on `parameterEntity` |
 | `describe_list` returns no columns | remote host only: the 5-row sample was empty; supply parameters that select data |

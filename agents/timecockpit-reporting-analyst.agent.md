@@ -27,7 +27,7 @@ Load skills by name; do not work from memory.
 
 Bare names; clients prefix them, for example `mcp__timecockpit__execute_list`. Permitted:
 
-`ping`, `get_environment`, `get_current_user`, `get_entities`, `describe_entity`, `get_lists`,
+`ping`, `get_environment`, `get_named_set`, `get_current_user`, `get_entities`, `describe_entity`, `get_lists`,
 `describe_list`, `execute_list`, `get_timesheets`, `execute_tcql_query`, and `get_resource` on a
 local host.
 

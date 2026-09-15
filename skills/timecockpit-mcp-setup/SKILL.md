@@ -111,7 +111,8 @@ route-segment URL form instead, and which clients' pre-registered-client-id supp
    `namedSets` (evaluated named sets, e.g. `APP_CurrentUserRoles`, each an object with `rows`,
    `count` and `truncated`). Check that they look like the tenant and user the user expected. A
    large environment is shortened, not refused: `truncated: true` on the envelope or on a set
-   means something was dropped, and `warnings` says what.
+   means something was dropped, and `warnings` says what — `get_named_set` then re-reads one named
+   set on its own, under a much larger row limit.
 3. `get_current_user` — the agent is acting as the right person.
 4. `entra_whoami` (remote only) — the Entra identity plus the tenant, sandbox and access/scope the
    server actually resolved for this connection. This is the tool that settles "why is it showing
