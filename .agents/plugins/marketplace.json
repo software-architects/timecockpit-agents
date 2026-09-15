@@ -7,10 +7,8 @@
     {
       "name": "timecockpit",
       "source": {
-        "source": "url",
-        "url": "software-architects/timecockpit-agents",
-        "ref": "bae084ae21ccc5f125134f8df39818eedb6d4dda",
-        "sha": "bae084ae21ccc5f125134f8df39818eedb6d4dda"
+        "source": "local",
+        "path": "./"
       },
       "policy": {
         "installation": "AVAILABLE",

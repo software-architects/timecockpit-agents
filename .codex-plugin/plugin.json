@@ -6,7 +6,12 @@
     "name": "software architects gmbh"
   },
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
+  "mcpServers": {
+    "timecockpit": {
+      "type": "http",
+      "url": "https://mcp.timecockpit.com"
+    }
+  },
   "interface": {
     "displayName": "time cockpit",
     "shortDescription": "Work with time cockpit data and workflows",

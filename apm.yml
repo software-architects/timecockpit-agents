@@ -17,17 +17,18 @@ scripts: {}
 
 marketplace:
   name: time cockpit
+  description: Skills, agents, and MCP access for working with time cockpit through AI agents.
   owner:
     name: software architects gmbh
     url: https://github.com/software-architects
   build:
     tagPattern: "v{version}"
   outputs:
+    claude: {}
     codex:
       path: .agents/plugins/marketplace.json
   packages:
     - name: timecockpit
       description: Skills, agents, and MCP access for working with time cockpit.
-      source: software-architects/timecockpit-agents
-      ref: bae084ae21ccc5f125134f8df39818eedb6d4dda
+      source: ./
       category: Productivity
