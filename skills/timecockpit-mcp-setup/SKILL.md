@@ -3,7 +3,7 @@ name: timecockpit-mcp-setup
 description: Connects an AI client (Claude Code, Claude Desktop, VS Code Copilot, Copilot CLI, Codex CLI, Cursor) to the time cockpit MCP server at mcp.timecockpit.com, or to the local stdio host started with OnCockpit.Admin.exe --mcp, and selects the right tenant, sandbox, read-only and own-data settings. Use when setting up, changing or sharing an MCP connection, when sign-in fails ("does not support dynamic client registration", 401, 403, consent), when expected tools are missing from the tool list, when the agent talks to the wrong tenant or to the test sandbox instead of production, and when installing the timecockpit-agents skills with apm.
 compatibility: The remote host needs a Microsoft Entra ID work account with time cockpit access and an MCP client that speaks HTTP transport with a pre-registered OAuth client id (Entra does not support dynamic client registration). The local stdio host needs an installed time cockpit desktop client and is Windows only.
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # time cockpit MCP setup
@@ -108,8 +108,10 @@ route-segment URL form instead, and which clients' pre-registered-client-id supp
    will.
 2. `get_environment` — you are attached to a real tenant. It returns `currentUser`
    (`APP_UserDetail`), `globalSettings` (`APP_GlobalSettings`, or `null` when not readable) and
-   `namedSets` (evaluated named sets, e.g. `APP_CurrentUserRoles`). Check that they look like the
-   tenant and user the user expected.
+   `namedSets` (evaluated named sets, e.g. `APP_CurrentUserRoles`, each an object with `rows`,
+   `count` and `truncated`). Check that they look like the tenant and user the user expected. A
+   large environment is shortened, not refused: `truncated: true` on the envelope or on a set
+   means something was dropped, and `warnings` says what.
 3. `get_current_user` — the agent is acting as the right person.
 4. `entra_whoami` (remote only) — the Entra identity plus the tenant, sandbox and access/scope the
    server actually resolved for this connection. This is the tool that settles "why is it showing

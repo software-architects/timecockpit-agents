@@ -3,7 +3,7 @@ name: timecockpit-lists-and-actions
 description: Discovers and runs a time cockpit tenant's named lists (saved views) with get_lists, describe_list and execute_list, and its model actions with get_actions and execute_action, including the confirmation handshake for state-changing actions. Use when a user asks for a saved view or "the list we use for X", wants report-like data that already exists in the app, or wants to run a model action such as creating an invoice or closing a project.
 compatibility: Any agent connected to a time cockpit MCP server (remote or local host). All five tools depend on optional deployment capabilities and may be absent; execute_action is additionally unavailable in read-only sessions and execute_list and execute_action in own-data sessions.
 metadata:
-  version: "1.2"
+  version: "1.3"
 ---
 
 # time cockpit Lists and Actions
@@ -39,11 +39,15 @@ an action. Never guess a technical list or action name to call a tool you cannot
 ### get_lists
 
 `filter` is a case-insensitive substring matched against the technical name *and* the friendly
-name — not a regular expression. Each entry reports `name`, `friendlyName`, `targetEntity` and
-a `parameters` map keyed by parameter name (`@BeginTime`) with a `type` and `mandatory` flag.
+name — not a regular expression. It is applied **before** the server-side row limit, so a match
+far down a large catalog is found rather than silently dropped. Each entry reports `name`,
+`friendlyName`, `targetEntity` and a `parameters` map keyed by parameter name (`@BeginTime`) with
+a `type` and `mandatory` flag.
 
-An empty `parameters` map means none were discovered, not proof that the list takes none. Only
-lists the acting user is permitted to see are returned.
+The result also carries `truncated`. `truncated: true` means the catalog held further lists that
+did not fit the limit — narrow with `filter` and look again before telling a user a list does not
+exist. An empty `parameters` map means none were discovered, not proof that the list takes none.
+Only lists the acting user is permitted to see are returned.
 
 ### describe_list
 
@@ -73,8 +77,9 @@ Inputs: `listName`, an optional `parameters` object, an optional `condition`.
 - `condition` is an extra TCQL Where fragment combined with the list's own query. It is caller
   input, so it is screened for hidden-entity references and capped like raw TCQL. Use it to
   narrow a list further, never to reshape it.
-- The row cap (100 by default) is applied *before* execution. Check `truncated` and narrow with
-  parameters or `condition` rather than asking for more rows.
+- The row cap (100 by default) is applied *before* execution. `truncated` is exact here: the host
+  reads one row past the cap to find out, so a result that exactly fills the cap reports the truth
+  either way. Check it and narrow with parameters or `condition` rather than asking for more rows.
 
 ```
 get_lists     { "filter": "unbilled" }
@@ -151,9 +156,17 @@ visible in lists are returned.
 
 ### execute_action
 
-Inputs: `actionName`, `inputSet` (an array of record UUID strings, capped at around 50),
-`parameter` (a JSON object matching the parameter entity), `entityName` (the entity context),
+Inputs: `actionName` and `entityName` — both **required** — plus `inputSet` (an array of record
+UUID strings, capped at around 50), `parameter` (a JSON object matching the parameter entity),
 and `confirmed`.
+
+`entityName` is not optional context: actions are authorized per entity, so a call without it is
+rejected with a message telling you to run `get_actions` first. The action name is then resolved
+against exactly the catalog `get_actions` publishes for that entity — guessing a name you did not
+see there fails, it does not reach the tenant. `parameter` is validated against the live parameter
+entity before anything runs: unknown members, calculated or read-only members, the parameter's own
+identifier, `SYS_*` members, and values of the wrong type are all rejected. That is why step 2
+below matters — take the member names from `describe_entity`, do not invent them.
 
 1. `get_actions` on the entity.
 2. `describe_entity` on `parameterEntity`, if the action declares one.
@@ -164,7 +177,14 @@ and `confirmed`.
 5. Restate the operation to the user in plain language: which action, how many records, which
    parameter values, and what will change. Wait for their answer.
 6. Re-invoke the identical call with `confirmed: true`. Success returns `status: "completed"`
-   plus the action's result.
+   plus the action's result: `action`, `succeeded`, `output`, `modifiedInputSet` (the UUIDs the
+   action changed — re-read them to verify) and, when the action produced one, `actionResult`.
+
+`actionResult` is one of three shapes and never a payload: `type: "uri"` (a link, with `uri`,
+`fileName`, `displayUri`, `open`), `type: "file"` (`contentType`, `fileName`, `byteCount`,
+`inline` — metadata only, the file's content is *not* returned over MCP), or `type: "other"` with
+a fixed summary sentence meaning "the action produced something this tool does not expose". Report
+`other` as exactly that; do not tell the user the action failed, and do not guess what it made.
 
 ```
 get_actions { "entityName": "APP_Timesheet" }
@@ -206,6 +226,9 @@ explain the operation *before* you call it rather than relying on the server to 
 | --- | --- |
 | tool missing from the tool list | capability off for this deployment/tenant, or a read-only / own-data session |
 | list or action not found | wrong name, or not permitted for this user — re-run `get_lists` / `get_actions`; do not try name variants |
+| "an entity context is required" on `execute_action` | `entityName` was omitted or blank — run `get_actions` for the entity and pass its name |
+| action "is not available for entity" | the name is not in that entity's catalog — re-run `get_actions`, do not retry with a variant |
+| a parameter member rejected | it is unknown, calculated, read-only, the identifier, or the wrong type — re-read `describe_entity` on `parameterEntity` |
 | `describe_list` returns no columns | remote host only: the 5-row sample was empty; supply parameters that select data |
 | parameter rejected | key missing its `@`, or the value is an object or array |
 | `condition` rejected | it references a hidden entity or breaks a guardrail; narrow with parameters instead |

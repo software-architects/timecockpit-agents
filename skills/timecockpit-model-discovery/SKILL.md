@@ -3,7 +3,7 @@ name: timecockpit-model-discovery
 description: Explores a time cockpit tenant's customized data model over MCP with get_entities, describe_entity, get_environment and the local data model resources, and turns the result into technical names that actually exist. Use when a user asks which fields an entity has, how customers, projects, tasks and timesheets are related, what a tenant administrator customized, or before writing TCQL, a field projection, a list parameter, or any create, update or delete call.
 compatibility: Any agent connected to a time cockpit MCP server (remote HTTP host or local stdio host). The timecockpit:// resources and the get_resource fallback exist on the local host only.
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # time cockpit Model Discovery
@@ -23,9 +23,16 @@ Tool names here are bare. Clients prefix them with the server name, for example
    `APP_UserDetail` record), `globalSettings` (the tenant's `APP_GlobalSettings` record, or
    `null` when not readable) and `namedSets` (evaluated named sets keyed by name, e.g.
    `APP_CurrentUserRoles`; a tenant may define its own — read the keys rather than assume only
-   that one). Records use the same shape as query rows: relations are reference objects,
-   credential-like members are omitted. It reports identity, not permissions; never infer from it
-   what the user may read or write. The server authorizes every call independently.
+   that one). Each named set is an object, not a bare array:
+   `{ "rows": [ … ], "count": N, "truncated": false }`, where `count` is the rows returned and not
+   the set's total. Records use the same shape as query rows: relations are reference objects,
+   credential-like members are omitted. The envelope also carries its own `truncated` flag and
+   `warnings`: an environment too large for the response limit is **shortened rather than
+   refused** — named-set rows go first, then `globalSettings`, then members of `currentUser`
+   (identity last). So check `truncated` on the envelope and on each set before treating a set as
+   the complete picture, and read `warnings` to see what was dropped. It reports identity, not
+   permissions; never infer from it what the user may read or write. The server authorizes every
+   call independently.
 2. `get_entities` — the entity inventory. `nameContains` is a case-insensitive substring;
    `customOnly: true` returns only tenant-defined entities.
 3. `describe_entity` — the full shape of one entity. Call it before you write a property name
