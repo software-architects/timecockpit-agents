@@ -3,7 +3,7 @@ name: timecockpit-lists-and-actions
 description: Discovers and runs a time cockpit tenant's named lists (saved views) with get_lists, describe_list and execute_list, and its model actions with get_actions and execute_action, including the confirmation handshake for state-changing actions. Use when a user asks for a saved view or "the list we use for X", wants report-like data that already exists in the app, or wants to run a model action such as creating an invoice or closing a project.
 compatibility: Any agent connected to a time cockpit MCP server (remote or local host). All five tools depend on optional deployment capabilities and may be absent; execute_action is additionally unavailable in read-only sessions and execute_list and execute_action in own-data sessions.
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # time cockpit Lists and Actions
@@ -47,10 +47,19 @@ lists the acting user is permitted to see are returned.
 
 ### describe_list
 
-Columns only, derived from a **5-row sample** — it never performs a full run. So a column whose
-sampled value was null comes back as `Unknown`; an empty sample yields only the two stable columns
-(`objectUuid`, `displayValue`) plus a warning telling you to supply parameters; and `rows` is always empty, because `describe_list` never
-returns data. Pass the parameters you intend to use, so the sample is representative.
+Reports the list's result `columns` and its declared `parameters` (mandatory/optional) without
+running the list — `rows` is always empty, because `describe_list` never returns data.
+
+- On a **local** host, columns come straight from the list's own TCQL/script definition (parsed
+  and validated, never executed), so they are correctly typed even when the list currently
+  matches zero rows, and `parameters` is read from the list's filter form — the same source
+  `get_lists` uses, so the two tools never disagree about a list's parameters.
+- A **remote** host has no in-process access to a list's query/script text, so it falls back to a
+  small **5-row sample** execution: a column whose sampled value was null still comes back as
+  `Unknown`, an empty sample yields only the two stable columns (`objectUuid`, `displayValue`)
+  plus a warning, and `parameters` is always an empty map there — pass the parameters you intend
+  to use so the sample is representative. Check `warnings` either way; a sample-derived result
+  says so explicitly.
 
 ### execute_list
 
@@ -100,6 +109,10 @@ never try to change a list definition here; lists are signed artifacts owned by 
   "count": 1, "truncated": false, "warnings": []
 }
 ```
+
+`describe_list`'s response additionally carries a `parameters` map (same shape as `get_lists`'
+`parameters`: `{ "@BeginTime": { "type": "DateTime", "mandatory": true } }`); no other tool
+populates that field.
 
 - A named list runs as a `New With` query internally, so `columns` are **inferred from the
   returned values**, not typed from the model: no `label`, `dataType` guessed from the data
@@ -193,7 +206,7 @@ explain the operation *before* you call it rather than relying on the server to 
 | --- | --- |
 | tool missing from the tool list | capability off for this deployment/tenant, or a read-only / own-data session |
 | list or action not found | wrong name, or not permitted for this user — re-run `get_lists` / `get_actions`; do not try name variants |
-| `describe_list` returns no columns | the 5-row sample was empty; supply parameters that select data |
+| `describe_list` returns no columns | remote host only: the 5-row sample was empty; supply parameters that select data |
 | parameter rejected | key missing its `@`, or the value is an object or array |
 | `condition` rejected | it references a hidden entity or breaks a guardrail; narrow with parameters instead |
 | `truncated: true` | the row cap applied; narrow the request, do not stitch pages |

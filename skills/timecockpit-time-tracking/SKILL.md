@@ -3,7 +3,7 @@ name: timecockpit-time-tracking
 description: Reviews, summarizes, and books a user's own working time in time cockpit over the connected MCP server. Use when someone asks what they worked on, wants a daily, weekly, or per-project summary of their hours, wants to find gaps, overlaps, or duplicate bookings in their timesheet, wants to book hours on a project or task, or wants to correct their recorded time.
 compatibility: Requires a connected time cockpit MCP server (remote or local stdio host) exposing get_current_user, get_timesheets and describe_entity. create_timesheet is hidden and rejected when the session runs with read-only access; execute_tcql_query is hidden when the session is restricted to own data.
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # Time Cockpit Time Tracking
@@ -35,9 +35,10 @@ user, has a begin and an end time, a description, and usually a project and a ta
 
 ## 1. Identify the acting user
 
-Call `get_current_user` first for any user-scoped work. It returns `userDetailId`, `displayName`,
-and `username`. Use the id only where an id is needed — omit `userDetailId` to mean "me", which is
-clearer and works in every mode.
+Call `get_current_user` first for any user-scoped work. It returns the acting user's full
+`APP_UserDetail` record (`objectUuid`, `displayValue`, and every readable property). Use
+`objectUuid` only where an id is needed — omit `userDetailId` on `get_timesheets`/`create_timesheet`
+to mean "me", which is clearer and works in every mode.
 
 ## 2. Review a period
 
