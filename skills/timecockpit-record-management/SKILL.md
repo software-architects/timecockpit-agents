@@ -39,7 +39,10 @@ From the metadata, read off:
   code, name or label. Look the UUID up first with `execute_tcql_query`, or take it from a row you
   already have: a relation member on a row (`row.APP_Project`, etc.) reads as
   `{ "objectUuid": …, "displayValue": … }` or `null` — use its `.objectUuid`.
-- `isCalculated`, `isReadOnly`, `isPrimaryKey` — rejected by the server; never send them.
+- `isCalculated`, `isReadOnly`, `isPrimaryKey` — rejected by the server; never send them. A
+  calculated member is evaluated from a formula and has no field to write to: read it back after
+  the save instead of trying to set it, and if the user asks to change one, say that its value
+  follows from the members it is calculated from and change those.
 - `isCustom` (`USR_` prefix) — tenant-specific extensions. They may be required and often carry
   the tenant's real business meaning; treat them as first-class, not optional extras.
 - `dataType` — drives the JSON value type (see below).
