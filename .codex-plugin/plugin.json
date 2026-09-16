@@ -1,7 +1,7 @@
 {
   "name": "timecockpit",
   "version": "0.1.5",
-  "description": "Skills, agents, and MCP access for working with time cockpit.",
+  "description": "Skills and MCP access for working with time cockpit.",
   "author": {
     "name": "software architects gmbh"
   },
