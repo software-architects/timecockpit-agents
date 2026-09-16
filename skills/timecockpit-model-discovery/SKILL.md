@@ -3,7 +3,7 @@ name: timecockpit-model-discovery
 description: Explores a time cockpit tenant's customized data model over MCP with get_entities, describe_entity, get_environment and the local data model resources, and turns the result into technical names that actually exist. Use when a user asks which fields an entity has, how customers, projects, tasks and timesheets are related, what a tenant administrator customized, or before writing TCQL, a field projection, a list parameter, or any create, update or delete call.
 compatibility: Any agent connected to a time cockpit MCP server (remote HTTP host or local stdio host). The timecockpit:// resources and the get_resource fallback exist on the local host only.
 metadata:
-  version: "1.2"
+  version: "1.3"
 ---
 
 # time cockpit Model Discovery
@@ -49,7 +49,7 @@ Metadata is stable within a session: discover an entity once and reuse the resul
 | --- | --- |
 | `APP_` | shipped with time cockpit — `APP_Timesheet`, `APP_Project`, `APP_Task`, `APP_Customer`, `APP_UserDetail` |
 | `USR_` | added or defined by this tenant's administrator |
-| `SYS_` | internal; never exposed on any MCP surface |
+| `SYS_` | internal entities and members; never exposed by entity discovery, `describe_entity`, TCQL, CRUD or actions. The one carve-out is a *named list* whose own stored name happens to begin with `SYS_`: a list is a signed model artifact and is never screened by its name, so `get_lists` may report one on either host |
 
 - Primary keys follow `<EntityName>Uuid`: `APP_Timesheet` gives `APP_TimesheetUuid`.
   `describe_entity` reports it as `primaryKeyName`, and record rows also carry it as
@@ -196,8 +196,10 @@ Discovered names go straight into `timecockpit-tcql` (queries and filters),
 - `describe_entity` on an unknown, internal or hidden entity returns a not-found error pointing
   back at `get_entities`. Do not retry with spelling variants and do not guess a technical
   name — hidden entities (`SYS_*` plus a fixed set of shipped telemetry and notification
-  entities) are absent from every surface by design. Tell the user that data is not exposed
-  over MCP.
+  entities) are absent from every entity surface by design. Tell the user that data is not exposed
+  over MCP. (That screen is on *entities*. A named list is a signed artifact and is never hidden
+  for its name or its declared target, so `get_lists` may list one called `SYS_…` — identically on
+  both hosts.)
 - `get_entities` may report `truncated: true` when the response bound was reached; narrow with
   `nameContains` instead of assuming the model is that small.
 - Optional tools (`get_lists`, `describe_list`, `execute_list`, `get_actions`,

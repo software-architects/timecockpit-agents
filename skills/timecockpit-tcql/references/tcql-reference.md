@@ -414,8 +414,8 @@ Only `Select` queries are executable; TCQL has no INSERT/UPDATE/DELETE form. Mut
 | `columns[].relatedEntity` | referenced entity for relation columns, typed or inferred |
 | `rows[]` | open objects: `objectUuid` (a generated per-row id for `New With`), `displayValue` (`null` or absent for `New With`), plus whatever was projected. A relation member is `{ "objectUuid": …, "displayValue": … }` or `null`, never a bare UUID; its `displayValue` is `null` or absent when not loaded. |
 | `count` | rows returned — not the number of matches |
-| `truncated` | true when a row or payload limit cut the result |
-| `warnings[]` | non-fatal remarks; a warning names the row limit when the cap definitely bit, or says the exact total is unknown when the result merely filled the cap |
+| `truncated` | true when a row or payload limit cut the result. Exact for the row cap: the server reads one row past it, so a result that exactly fills the cap is reported complete, not truncated |
+| `warnings[]` | non-fatal remarks; a warning names the row limit whenever the cap bit. A result the cap did not cut carries no truncation warning |
 
 An empty result carries only the two stable columns, `objectUuid` and `displayValue` — the
 rest of the shape is derived from the returned records.

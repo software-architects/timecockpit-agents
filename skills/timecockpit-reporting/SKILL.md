@@ -3,7 +3,7 @@ name: timecockpit-reporting
 description: Answers analytical questions about time cockpit data with the read-only MCP tools — hours per project, customer, user or period, budget versus actual, utilization, missing bookings and absence overviews — using named lists where the tenant has them and aggregating TCQL queries otherwise. Use when the user asks how many hours, how much was booked or billed, who is over or under budget, what is still missing, or asks for a summary, breakdown, totals or an export of time data. Not for creating or changing records (see timecockpit-record-management).
 compatibility: Requires an AI client connected to a time cockpit MCP server (remote or local host). Named-list tools depend on an optional server capability and may be absent. Tool names may carry a client prefix.
 metadata:
-  version: "1.0"
+  version: "1.1"
 ---
 
 # Time Cockpit Reporting
@@ -38,8 +38,9 @@ Confirm what "the user" means with `get_current_user` before reporting on "my" a
 
 Every record-returning tool is capped server-side (default **100 rows**; `get_timesheets`
 defaults to 50). There is no paging cursor, and `Top(N)` is inserted or lowered to the cap
-automatically. Results carry `truncated` plus a warning; a result that exactly fills the cap may be
-truncated even when the server cannot prove it.
+automatically. Results carry `truncated`, plus a warning naming the row limit when it bit. The flag
+is exact: the server reads one row past the cap, so a result that exactly fills the cap is reported
+complete rather than as a maybe.
 
 So a month of bookings for a team will never come back as raw rows. Three legitimate ways out:
 
