@@ -24,11 +24,10 @@ marketplace:
   build:
     tagPattern: "v{version}"
   outputs:
-    claude: {}
     codex:
       path: .agents/plugins/marketplace.json
   packages:
     - name: timecockpit
-      description: Skills, agents, and MCP access for working with time cockpit.
+      description: Skills and MCP access for working with time cockpit.
       source: ./
       category: Productivity
