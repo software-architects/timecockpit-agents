@@ -20,7 +20,7 @@ of the actual response.
 | `APP_DurationInHours` | calculated | Duration in hours — read this instead of computing. |
 | `APP_DurationInDays` | calculated | Duration in person-days. |
 | `APP_DateActual` | calculated date | Day of the entry; convenient for grouping. |
-| `APP_ProjectCodeActual` | calculated | Effective project code; convenient for per-project grouping. |
+| `APP_ProjectCodeActual` | calculated | Effective project code (task's project wins). Codes repeat across customers, so group together with `APP_CompanyNameActual`. |
 | `APP_UserDetailName` | calculated | User name, useful when reading another user's data. |
 | `APP_IsDurationTimesheet` | writable flag | True for duration-only bookings; begin/end are then bookkeeping values. |
 | `APP_BeginTimeActual`, `APP_EndTimeActual` | calculated | Begin/end for from-to bookings only. |
