@@ -1,9 +1,9 @@
 ---
 name: timecockpit-mcp-setup
-description: Connects an AI client (Claude Code, Claude Desktop, VS Code Copilot, Copilot CLI, Codex CLI, Cursor) to the time cockpit MCP server at mcp.timecockpit.com, or to the local stdio host started with OnCockpit.Admin.exe --mcp, and selects the right tenant, sandbox, read-only and own-data settings. Use when setting up, changing or sharing an MCP connection, when sign-in fails ("does not support dynamic client registration", 401, 403, consent), when expected tools are missing from the tool list, when the agent talks to the wrong tenant or to the test sandbox instead of production, and when installing the timecockpit-agents skills with apm.
+description: Connects an AI client (Claude Code, Claude Desktop, VS Code Copilot, Copilot CLI, Codex CLI, Cursor) to the time cockpit MCP server at mcp.timecockpit.com, or to the local stdio host started with OnCockpit.Admin.exe --mcp, and selects the right tenant, sandbox, read-only and own-data settings. Use when setting up, changing or sharing an MCP connection, when sign-in fails ("does not support dynamic client registration", 401, 403, consent), when expected tools are missing from the tool list, when the agent talks to the wrong tenant or to the test sandbox instead of production, and when installing the timecockpit-agents skills with apm or skills.sh (npx skills).
 compatibility: The remote host needs a Microsoft Entra ID work account with time cockpit access and an MCP client that speaks HTTP transport with a pre-registered OAuth client id (Entra does not support dynamic client registration). The local stdio host needs an installed time cockpit desktop client and is Windows only.
 metadata:
-  version: "1.2"
+  version: "1.3"
 ---
 
 # time cockpit MCP setup
@@ -159,7 +159,7 @@ rights, and `get_resource` plus the native resources expose the whole visible mo
 mutating, so `--mcp-access readonly` hides the script tools. Point an agent here only when the work
 genuinely needs it, and follow the `time-cockpit-local-mcp` skill (from the internal `software-architects/tc-agents-internal` package) for using those tools safely.
 
-## 9. Installing these skills with apm
+## 9. Installing these skills (apm or skills.sh)
 
 The skills live in the public `software-architects/timecockpit-agents` package, installed with
 [Microsoft APM](https://microsoft.github.io/apm/):
@@ -175,6 +175,18 @@ Or add `software-architects/timecockpit-agents` under `dependencies.apm` in your
 `.mcp.json` (Claude Code), `.github/mcp.json` (Copilot CLI), `.vscode/mcp.json` (VS Code) or `.codex/config.toml` (Codex), depending on your configured targets, once you accept
 the trust prompt. Then add your own client id to that generated entry (section 4); apm cannot know
 it.
+
+Without apm, the [skills.sh](https://skills.sh) CLI installs the skills only. It needs Node.js;
+`npx` fetches the CLI on first use:
+
+```bash
+npx skills add software-architects/timecockpit-agents                                # pick skills interactively
+npx skills add software-architects/timecockpit-agents --skill timecockpit-mcp-setup  # a single skill
+```
+
+skills.sh deploys neither the agents nor the MCP server entry, and it has no version pinning. After
+installing, create the `timecockpit` server entry in your client by hand (sections 3 to 5, and
+`references/client-configs.md` for the exact file per client), including your client id.
 
 ## 10. Where to go next
 

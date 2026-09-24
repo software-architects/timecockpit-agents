@@ -22,8 +22,9 @@ declaration. There is no code to run and no service to host.
   Claude Desktop.
 - Access to a time cockpit MCP server — the hosted remote server, or the local Windows host that
   ships with the desktop administration tool.
-- Optionally **Microsoft APM** (`apm`) to install and update this package. Without it you can copy
-  the `skills/` and `agents/` folders into your project by hand.
+- Optionally **Microsoft APM** (`apm`) to install and update this package, or **Node.js** to install
+  the skills only with the [skills.sh](https://skills.sh) CLI (`npx skills`). Without either you can
+  copy the `skills/` and `agents/` folders into your project by hand.
 
 ## Quick start
 
@@ -52,6 +53,29 @@ dependencies:
 ```
 
 Then run `apm install` and restart your agent so it picks up the new skills, agents, and MCP entry.
+
+## Alternative: skills only, with skills.sh
+
+If you do not use apm, the [skills.sh](https://skills.sh) CLI installs the skills from `skills/`
+into a wide range of agents, including Claude Code, GitHub Copilot, Codex, and Cursor. It needs Node.js
+and nothing else; `npx` fetches the CLI on first use.
+
+```bash
+npx skills add software-architects/timecockpit-agents
+```
+
+The CLI asks which skills and which agents to install into, and whether to install into the current
+project or globally. To pick a single skill up front:
+
+```bash
+npx skills add software-architects/timecockpit-agents --skill timecockpit-tcql
+```
+
+skills.sh installs **skills only**. The agents from `agents/` and the `timecockpit` MCP server entry
+are not deployed, so configure the MCP server in your client yourself — the `timecockpit-mcp-setup`
+skill walks you through it, and `skills/timecockpit-mcp-setup/references/client-configs.md` has the
+configuration for each client. There is no version pinning either; each run installs the current
+default branch.
 
 ## What apm deploys where
 
