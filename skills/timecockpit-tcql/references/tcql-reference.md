@@ -105,6 +105,21 @@ SQL three-valued logic. Verified against a live tenant on a nullable Boolean who
 So a nullable flag needs the explicit `Or … = Null` branch. `describe_entity` reports
 `isRequired`; only a required property is safe to compare directly.
 
+### Booleans need an explicit comparison
+
+A bare Boolean member is not accepted as a condition. Verified against a live tenant:
+
+| Expression | Result |
+|---|---|
+| `Where … And T.APP_Billable` | rejected |
+| `:Iif(T.APP_Billable, T.APP_DurationInHours, 0)` | rejected (inside or outside an aggregate) |
+| `Where … And T.APP_Billable = True` | works |
+| `:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0)` | works |
+| `Sum(:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0))` | works |
+
+The server's error for the rejected forms is a generic "An error occurred invoking" with no hint,
+so check for a bare Boolean first when a query that looks right fails.
+
 ### Arithmetic on date/time values
 
 Subtracting two date+time values yields **days** as a decimal, Excel-style:
@@ -182,7 +197,7 @@ Functions start with a colon. Argument counts and types depend on the function.
 | `:Soundex(s)` | server database only |
 | `:Round(n, digits)` | |
 | `:FormatNumber(n, format)` | .NET numeric format string |
-| `:Iif(condition, trueValue, falseValue)` | usable in `Where` and `Select` |
+| `:Iif(condition, trueValue, falseValue)` | usable in `Where` and `Select`, also inside `Sum(…)`; `condition` must be a comparison (`X = True`), not a bare Boolean |
 
 ### Records and model
 
@@ -236,6 +251,11 @@ groups by user **and** period. Removing `.Period` collapses to one row per user.
 
 Sorting by an aggregated value is not supported against the local data store — order by a grouped
 expression, or sort the returned rows yourself when presenting them.
+
+A scalar function may sit inside an aggregate. The common case is a conditional total:
+`Sum(:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0))` sums only billable hours without
+adding a grouping level. The alternative — projecting `.IsBillable = T.APP_Billable` as a grouping
+key — also works, but doubles the row count and leaves the pivoting to you.
 
 ---
 

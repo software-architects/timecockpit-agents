@@ -64,6 +64,9 @@ Select New With {
 ```
 
 Two rows per project (`True`/`False`). Present it as a table with a billable share per project.
+For one row per project instead, keep `.Hours = Sum(T.APP_DurationInHours)` and add
+`.BillableHours = Sum(:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0))` in place of
+`.Billable` -- the `= True` is required.
 `APP_Billable` is the flag on the booking; `APP_Billed` says whether it has been invoiced -- they
 answer different questions.
 

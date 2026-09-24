@@ -3,7 +3,7 @@ name: timecockpit-reporting
 description: Answers analytical questions about time cockpit data with the read-only MCP tools — hours per project, customer, user or period, budget versus actual, utilization, missing bookings and absence overviews — using named lists where the tenant has them and aggregating TCQL queries otherwise. Use when the user asks how many hours, how much was booked or billed, who is over or under budget, what is still missing, or asks for a summary, breakdown, totals or an export of time data. Not for creating or changing records (see timecockpit-record-management).
 compatibility: Requires an AI client connected to a time cockpit MCP server (remote or local host). Named-list tools depend on an optional server capability and may be absent. Tool names may carry a client prefix.
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # Time Cockpit Reporting
@@ -76,6 +76,10 @@ Two limits to plan around:
   the returned rows yourself.
 - `Top(N)` caps the number of **result rows**, i.e. groups. 100 groups is usually plenty; 100 raw
   bookings is not. If a grouped result is still truncated, the grouping is too fine.
+
+For a total and a subset in the same row, wrap `:Iif` in the aggregate:
+`.BillableHours = Sum(:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0))`. Always compare the
+Boolean explicitly — `:Iif(T.APP_Billable, …)` and `Where … And T.APP_Billable` are rejected.
 
 Pass user-supplied values as parameters (`@FromDate`, `@ToDate`, ...), never interpolated into the query
 text. Comments (`//`, `/* */`) are rejected outright. Full syntax lives in `timecockpit-tcql`.

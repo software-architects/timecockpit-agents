@@ -96,6 +96,23 @@ Select Top(100) New With {
 the figures are time-cockpit-calculated, not invoiced amounts — invoiced amounts live on
 `APP_Invoice`.
 
+## 4a. Total and billable hours side by side (conditional sum)
+
+```
+From T In APP_Timesheet
+Where T.APP_BeginTime >= #2026-01-01# And T.APP_BeginTime < #2026-02-01#
+  And T.APP_ProjectCodeActual = @Code
+Select Top(100) New With {
+  .Employee      = T.APP_UserDetail.APP_Fullname,
+  .Hours         = Sum(T.APP_DurationInHours),
+  .BillableHours = Sum(:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0)),
+  .Revenue       = Sum(T.APP_Revenue)
+}
+```
+
+`parameters: {"@Code": "PROJ-001"}`. One row per employee, with total and billable hours in the
+same row. The `= True` is mandatory: `:Iif(T.APP_Billable, …)` is rejected with a generic error.
+
 ## 5. Recent bookings of one project, with row ids
 
 ```
