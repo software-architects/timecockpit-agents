@@ -1,9 +1,9 @@
 ---
 name: timecockpit-record-management
-description: Creates, updates and deletes time cockpit records through the MCP tools create_entity, update_entity and delete_entity, including the mandatory describe_entity discovery step, the confirmed=true handshake and a verification re-read. Use when the user asks to add, change, correct, close, archive or delete a project, customer, task, user, absence, timesheet or any tenant-defined record, or when a mutation was rejected as invalid, read-only or unconfirmed. Not for building analytical reports (see timecockpit-reporting).
+description: Creates, updates and deletes time cockpit records through the MCP tools create_object, update_object and delete_object, including the mandatory describe_entity discovery step, the confirmed=true handshake and a verification re-read. Use when the user asks to add, change, correct, close, archive or delete a project, customer, task, user, absence, timesheet or any tenant-defined record, or when a mutation was rejected as invalid, read-only or unconfirmed. Not for building analytical reports (see timecockpit-reporting).
 compatibility: Requires an AI client connected to a time cockpit MCP server (remote or local host) whose session is not in ReadOnly access or OwnData scope. Tool names may carry a client prefix.
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # Time Cockpit Record Management
@@ -12,10 +12,10 @@ Write operations against a live tenant. Every create, update and delete is real 
 production database, so the sequence below is not optional.
 
 Related skills: `timecockpit-model-discovery` (entities and properties),
-`timecockpit-time-tracking` (timesheets), `timecockpit-lists-and-actions` (named lists and model
-actions), `timecockpit-tcql` (query syntax), `timecockpit-mcp-setup` (connection, access modes).
+`timecockpit-time-tracking` (timesheets), `timecockpit-lists-and-actions` (named lists),
+`timecockpit-tcql` (query syntax), `timecockpit-mcp-setup` (connection, access modes).
 
-Tool names are written bare here. Most clients prefix them, e.g. `mcp__<server>__create_entity`.
+Tool names are written bare here. Most clients prefix them, e.g. `mcp__<server>__create_object`.
 
 ## 1. Pick the right tool first
 
@@ -23,9 +23,13 @@ Generic CRUD is the escape hatch, not the default:
 
 1. **Typed tool** — `create_timesheet` for time bookings. It validates begin/end, resolves the
    acting user and accepts tenant properties via `additionalFields`.
-2. **Model action** — `get_actions('<Entity>')` then `execute_action`. Actions carry the tenant's
-   own business logic (approvals, invoicing, status changes). Prefer one when it matches the intent.
-3. **Generic CRUD** — `create_entity` / `update_entity` / `delete_entity` for everything else.
+2. **Generic CRUD** — `create_object` / `update_object` / `delete_object` for everything else.
+   Each call creates, changes or deletes one object (record) of the named entity.
+
+Model actions (approvals, invoicing, status changes and other tenant business logic) are **not
+available over MCP**. When the user's intent matches a model action, tell them to run it in the time
+cockpit UI instead of reproducing its effect with generic object edits, which would skip the logic
+and side effects the tenant designed.
 
 ## 2. Discover before you write
 
@@ -65,7 +69,7 @@ Rules:
 - Dates and times are ISO 8601: `2026-04-01`, `2026-04-01T08:30:00`.
 - Booleans are JSON `true` / `false` — not `"true"`, `"Yes"` or `1`.
 - Numbers are JSON numbers; do not localise the decimal separator.
-- On `update_entity`, send **only the properties that change**. Omitted properties keep their
+- On `update_object`, send **only the properties that change**. Omitted properties keep their
   values; an unnecessary key is a silent extra change on the record.
 
 ## 4. The confirmation handshake
@@ -92,7 +96,7 @@ call. Ask the user anyway — the handshake is the user's control, not the serve
 ## 5. Deletes
 
 - Irreversible. There is no undo, no recycle bin and no MCP restore path.
-- **One record per call, one confirmation per record.** `delete_entity` takes a single UUID.
+- **One record per call, one confirmation per record.** `delete_object` takes a single UUID.
 - Never loop over a result set and delete it. If the user wants several records gone, list them as
   a numbered table with display values, get explicit approval for that exact batch, then delete
   them one at a time and report each result.
@@ -117,16 +121,16 @@ UUID, compare the values that matter, and report what the tenant actually stores
 ```
 describe_entity('APP_Project')
 execute_tcql_query("From C In APP_Customer Where C.APP_Code = @Code Select Top(1) New With { C.APP_CustomerUuid, C.APP_CompanyName }", { "@Code": "ACME" })
-create_entity('APP_Project', { ... })                 -> status: confirmation_required
-create_entity('APP_Project', { ... }, confirmed=true) -> status: completed, id: ...
+create_object('APP_Project', { ... })                 -> status: confirmation_required
+create_object('APP_Project', { ... }, confirmed=true) -> status: completed, id: ...
 execute_tcql_query("From P In APP_Project Where P.APP_ProjectUuid = @Id Select Top(1) P", { "@Id": "..." })
 ```
 
 Correcting one timesheet description, after `get_timesheets` produced the `objectUuid`:
 
 ```
-update_entity('APP_Timesheet', '<uuid>', { "APP_Description": "Sprint review" })                 -> confirmation_required
-update_entity('APP_Timesheet', '<uuid>', { "APP_Description": "Sprint review" }, confirmed=true) -> completed
+update_object('APP_Timesheet', '<uuid>', { "APP_Description": "Sprint review" })                 -> confirmation_required
+update_object('APP_Timesheet', '<uuid>', { "APP_Description": "Sprint review" }, confirmed=true) -> completed
 get_timesheets(from: '2026-04-01', to: '2026-04-02')
 ```
 
@@ -140,7 +144,7 @@ get_timesheets(from: '2026-04-01', to: '2026-04-02')
 | `does not exist in this tenant's data model` | Typo, or the entity is hidden from MCP (system and internal entities are never writable). |
 | Validation or trigger error from the tenant | The model's own rule rejected the payload. Report the message; do not retry with altered values to get around it. |
 | Permission denied | The acting user's role lacks write permission. Not fixable from the agent side. |
-| `create_entity` / `update_entity` / `delete_entity` not offered at all | The session is `Access=ReadOnly`, or `Scope=OwnData` (generic CRUD is hidden there — use `create_timesheet`). Only the operator can change this; see `timecockpit-mcp-setup`. |
+| `create_object` / `update_object` / `delete_object` not offered at all | The session is `Access=ReadOnly`, or `Scope=OwnData` (generic CRUD is hidden there — use `create_timesheet`). Only the operator can change this; see `timecockpit-mcp-setup`. |
 | `not available in read-only mode` | Same cause, tool invoked directly. |
 
 ## Never do

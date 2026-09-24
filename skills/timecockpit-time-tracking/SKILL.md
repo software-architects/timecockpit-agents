@@ -3,7 +3,7 @@ name: timecockpit-time-tracking
 description: Reviews, summarizes, and books a user's own working time in time cockpit over the connected MCP server. Use when someone asks what they worked on, wants a daily, weekly, or per-project summary of their hours, wants to find gaps, overlaps, or duplicate bookings in their timesheet, wants to book hours on a project or task, or wants to correct their recorded time.
 compatibility: Requires a connected time cockpit MCP server (remote or local stdio host) exposing get_current_user, get_timesheets and describe_entity. create_timesheet is hidden and rejected when the session runs with read-only access; execute_tcql_query is hidden when the session is restricted to own data. create_timesheet_suggestion is local-stdio-only today; remote support is pending, so the tool is absent from the remote server.
 metadata:
-  version: "1.5"
+  version: "1.6"
 ---
 
 # Time Cockpit Time Tracking
@@ -157,8 +157,8 @@ Rules that are not negotiable:
 
 ## Out of scope — use the neighbouring skills
 
-- **Changing or removing an existing entry** goes through the generic `update_entity` /
-  `delete_entity` tools, which require explicit confirmation. Use the
+- **Changing or removing an existing entry** goes through the generic `update_object` /
+  `delete_object` tools, which require explicit confirmation. Use the
   `timecockpit-record-management` skill; do not improvise CRUD here.
 - **Reporting across users, teams, customers, budgets, or billing** and anything needing free
   queries or named lists: `timecockpit-reporting` and `timecockpit-tcql`.
@@ -170,7 +170,7 @@ only on the local stdio MCP host today; on the remote server the tool is absent 
 suggestion stores a snapshot of the proposed timesheet that no remote endpoint builds yet. Remote
 support is **pending** that endpoint, not ruled out. If the tool is not in the session's tool
 list, say so rather than looking for a workaround — and do not try to create
-the record yourself with `create_entity`: a suggestion without a valid snapshot cannot be opened or
+the record yourself with `create_object`: a suggestion without a valid snapshot cannot be opened or
 accepted by the receiver.
 
 What it does and does not do:

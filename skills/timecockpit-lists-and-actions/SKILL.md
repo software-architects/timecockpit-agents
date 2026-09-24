@@ -1,38 +1,40 @@
 ---
 name: timecockpit-lists-and-actions
-description: Discovers and runs a time cockpit tenant's named lists (saved views) with get_lists, describe_list and execute_list, and its model actions with get_actions and execute_action, including the confirmation handshake for state-changing actions. Use when a user asks for a saved view or "the list we use for X", wants report-like data that already exists in the app, or wants to run a model action such as creating an invoice or closing a project.
-compatibility: Any agent connected to a time cockpit MCP server (remote or local host). All five tools depend on optional deployment capabilities and may be absent; execute_action is additionally unavailable in read-only sessions and execute_list and execute_action in own-data sessions.
+description: Discovers and runs a time cockpit tenant's named lists (saved views) with get_lists, describe_list and execute_list. Use when a user asks for a saved view or "the list we use for X", or wants report-like data that already exists in the app. Model actions are not available over MCP; when a user wants one run (for example creating an invoice or closing a project), direct them to the time cockpit UI.
+compatibility: Any agent connected to a time cockpit MCP server (remote or local host). All three tools depend on optional deployment capabilities and may be absent; execute_list is additionally unavailable in own-data sessions.
 metadata:
-  version: "1.5"
+  version: "2.0"
 ---
 
-# time cockpit Lists and Actions
+# time cockpit Lists
 
 **Named lists** are the saved views a tenant authored in its own model: a stored query plus
 filter parameters, columns, grouping and sorting. They encode business rules the tenant already
 agreed on ("which timesheets count as unbilled"), so a matching list usually beats a query you
 write yourself.
 
-**Model actions** are named operations in the model — scripts that create, change or delete
-records. They are the only way to trigger tenant business logic over MCP, and they are the most
-dangerous surface here.
+**Model actions** — named operations in the model such as creating an invoice or closing a
+project — are **not available over MCP** in either host. No tool lists or runs them. When a user
+wants an action run, tell them to run it in the time cockpit UI; afterwards you can read the
+affected records to confirm the outcome. Do not emulate an action with `create_object`,
+`update_object` or `delete_object`: an action carries tenant logic, approvals and side effects that
+a sequence of object edits does not reproduce. (This skill keeps its historical name so existing
+installations and references keep working; it covers lists only.)
 
 Tool names below are bare; clients prefix them with the server name, e.g.
 `mcp__timecockpit__get_lists`.
 
 ## 1. Check availability before promising anything
 
-These five tools are capability-gated and may simply not exist for a session: `get_lists`
-(`named_lists`), `describe_list` and `execute_list` (`execute_lists`), `get_actions`
-(`model_actions`), `execute_action` (`execute_actions`). When a capability is unavailable the
-tool is removed from the tool list *and* rejected if called directly. On top of that, a
-**read-only** session hides and rejects `execute_action`, and an **own-data** session hides
-`execute_list` and `execute_action` because their results cannot be constrained to the acting
-user (`get_lists`, `describe_list` and `get_actions` remain).
+These three tools are capability-gated and may simply not exist for a session: `get_lists`
+(`named_lists`), `describe_list` and `execute_list` (`execute_lists`). When a capability is
+unavailable the tool is removed from the tool list *and* rejected if called directly. On top of
+that, an **own-data** session hides `execute_list` because its results cannot be constrained to the
+acting user (`get_lists` and `describe_list` remain).
 
 So if you cannot see a tool, the capability is off for this deployment, tenant or session. Say
-that plainly and fall back: reads can go through `timecockpit-tcql`, but nothing substitutes for
-an action. Never guess a technical list or action name to call a tool you cannot see.
+that plainly and fall back: reads can go through `timecockpit-tcql`. Never guess a technical list
+name to call a tool you cannot see.
 
 ## 2. Lists: discover, describe, execute
 
@@ -129,12 +131,12 @@ populates that field.
   (`Unknown` for an all-null column, `Relation` for a nested object), and every column name gets
   the tenant `USR_` prefix regardless of whether it is a real tenant extension (see
   `timecockpit-tcql` for why). Read `columns` instead of assuming a name or type.
-- `rows` normally carry `objectUuid` (feed it into an action's `inputSet`), but `displayValue` is
-  typically `null` or absent — anonymous projections have no display property. A relation column
-  reads as `{ "objectUuid": …, "displayValue": … }` or `null` — never a bare UUID or a bare
-  string; its own `displayValue` is likewise `null` or absent when the related record was not
-  loaded. Use `.objectUuid` for lookups/`inputSet` entries and `.displayValue` for presentation,
-  following up with `describe_entity` or a targeted query if the user needs a name that is missing.
+- `rows` normally carry `objectUuid` (the key for a follow-up read or an `update_object` call), but
+  `displayValue` is typically `null` or absent — anonymous projections have no display property. A
+  relation column reads as `{ "objectUuid": …, "displayValue": … }` or `null` — never a bare UUID
+  or a bare string; its own `displayValue` is likewise `null` or absent when the related record was
+  not loaded. Use `.objectUuid` for lookups and `.displayValue` for presentation, following up with
+  `describe_entity` or a targeted query if the user needs a name that is missing.
 - `count` is the number of rows returned; `truncated: true` means data was cut off. Never
   present a truncated result as a total or as a complete list. `warnings` is informational —
   surface anything that changes how the numbers should be read.
@@ -142,127 +144,20 @@ populates that field.
 When reporting to a user, prefer the list's `friendlyName`, and a human-friendly heading with the
 `USR_` prefix dropped for each column; keep technical names for follow-up calls.
 
-## 5. Actions: discover, then execute
+On the local host, a list's definition (query and script source) is also readable through the
+model resources — read it when what the list counts is not obvious (`timecockpit-model-discovery`).
 
-### get_actions
-
-`entityName` is optional. Supply it — the normal case — and you get that entity's actions, so
-establish the entity first (`timecockpit-model-discovery`). Omit it and you get the **standalone**
-actions instead: the ones bound to no entity, which `execute_action` runs without an `entityName`.
-That is the only way to discover a standalone action; an entity's listing never includes one you
-could run entity-free, and the standalone listing never includes an entity-bound action. Each entry
-reports `name`, `displayName`, `parameterEntity`, `minimumInputSetSize` and `executeWithoutPrompt`.
-Only actions the acting user holds execute permission for are returned. Desktop UI placement is
-not a filter: an action the app shows no button for is still listed and runnable here if the user
-may execute it.
-
-- Looking for a tenant-wide maintenance or import action and not finding it under any entity? Call
-  `get_actions` with no arguments.
-- If a call with no `entityName` reports that the standalone actions could not be determined, that
-  is a deployment limitation, not an empty result: do not report "there are no standalone actions".
-  Fall back to `get_actions` with an `entityName`.
-
-- `minimumInputSetSize` greater than zero means the action needs at least that many records.
-- `parameterEntity` names a typed parameter entity; run `describe_entity` on it to learn the
-  parameter fields. Those names may carry no `APP_`/`USR_` prefix — use them verbatim.
-- `executeWithoutPrompt: false` means the action normally opens a dialog in the desktop client.
-  Some shipped actions also report progress through message boxes, which have nowhere to go in
-  an agent session. If such an action stalls or returns no clear result, report that instead of
-  retrying.
-
-### execute_action
-
-Inputs: `actionName` — **always required** — plus `entityName`, `inputSet` (an array of record
-UUID strings, capped at around 50), `parameter` (a JSON object matching the parameter entity),
-and `confirmed`.
-
-`entityName` is **required whenever `inputSet` is non-empty, and optional otherwise**. The records
-of an input set belong to an entity and actions are authorized per entity, so a call that passes an
-input set without `entityName` is rejected with a message telling you to run `get_actions` first. A
-standalone action — one with no input set at all — has no entity to name and is authorized against
-the standalone catalog instead (the one `get_actions` lists with no arguments), so omit `entityName`
-there rather than guessing one. Either way the
-action name is resolved against exactly the catalog `get_actions` publishes — guessing a name you
-did not see there fails, it does not reach the tenant. `parameter` is validated against the live parameter
-entity before anything runs: unknown members, calculated or read-only members, the parameter's own
-identifier, `SYS_*` members, and values of the wrong type are all rejected. That is why step 2
-below matters — take the member names from `describe_entity`, do not invent them.
-
-A parameter member whose `dataType` is **`Duration`** takes a **string** in
-`[-][d.]hh:mm[:ss[.fffffff]]` form — `"01:30:00"` for an hour and a half, `"1.00:00:00"` for a day.
-This is the spelling TCQL itself uses for a duration literal. A plain number is **rejected** (there
-is no duration-typed number in the model, so no unit could be assumed), and so is the ISO 8601
-spelling `"PT1H30M"`. The colon is required: `"5"` would otherwise mean five *days*.
-
-1. `get_actions` on the entity — or with no arguments when you are after a standalone action.
-2. `describe_entity` on `parameterEntity`, if the action declares one.
-3. Collect the record UUIDs — the `objectUuid` values from `execute_list`,
-   `execute_tcql_query` or `get_timesheets`.
-4. Call `execute_action` **without** `confirmed`. It returns
-   `status: "confirmation_required"` plus a message; nothing has run.
-5. Restate the operation to the user in plain language: which action, how many records, which
-   parameter values, and what will change. Wait for their answer.
-6. Re-invoke the identical call with `confirmed: true`. Success returns `status: "completed"`
-   plus the action's result: `action`, `succeeded`, `output`, `modifiedInputSet` (the UUIDs the
-   action changed — re-read them to verify) and, when the action produced one, `actionResult`.
-
-`actionResult` is one of three shapes and never a payload: `type: "uri"` (a link, with `uri`,
-`fileName`, `displayUri`, `open`), `type: "file"` (`contentType`, `fileName`, `byteCount`,
-`inline` — metadata only, the file's content is *not* returned over MCP), or `type: "other"` with
-a fixed summary sentence meaning "the action produced something this tool does not expose". Report
-`other` as exactly that; do not tell the user the action failed, and do not guess what it made.
-
-```
-get_actions { "entityName": "APP_Timesheet" }
-// -> APP_CreateInvoiceAction, parameterEntity "CreateInvoiceParameter", minimumInputSetSize 1
-
-execute_action {
-  "actionName": "APP_CreateInvoiceAction",
-  "entityName": "APP_Timesheet",
-  "inputSet": ["…uuid…", "…uuid…"],
-  "parameter": { "InvoiceDate": "2026-02-01", "InvoiceNumber": "2026-0042",
-                 "InvoiceDescription": "January consulting" }
-}
-// -> status "confirmation_required" -> restate to the user -> same call plus "confirmed": true
-```
-
-Never send `confirmed: true` on the first call, and never treat the handshake as a formality —
-it exists so a human sees the scope before records change. An operator may have disabled
-confirmation for a controlled sandbox, in which case the first call executes immediately, so
-explain the operation *before* you call it rather than relying on the server to stop you.
-
-## 6. Actions change state and cannot be stopped
-
-- Assume every action is destructive until you have read what it does. Actions run tenant
-  logic: they create and delete records, flag work as billed, or push data onward.
-- Once an action has started it cannot be interrupted. Cancelling the request, stopping the
-  agent, or a client timeout does not roll it back — the work may complete anyway. Do not retry
-  an action that timed out; read the affected records first to find out what happened.
-- There is no undo. When the effect is uncertain, run it against a single record, verify, then
-  widen the `inputSet`.
-- On the local host, action and list definitions (query and script source) are readable through
-  the model resources — read the definition when the effect is not obvious
-  (`timecockpit-model-discovery`).
-- A failed action surfaces as an error rather than a partial result. Re-read the records to
-  establish what actually changed before telling the user anything.
-
-## 7. Failure modes
+## 5. Failure modes
 
 | Symptom | Meaning |
 | --- | --- |
-| tool missing from the tool list | capability off for this deployment/tenant, or a read-only / own-data session |
-| list or action not found | wrong name, or not permitted for this user — re-run `get_lists` / `get_actions`; do not try name variants |
-| "an entity context is required" on `execute_action` | `entityName` was omitted or blank on a call that passed an `inputSet` — run `get_actions` for the entity and pass its name; a standalone action with no input set needs no `entityName` |
-| "cannot be executed without an entity context" on `execute_action` | the action was called with no `inputSet` and no `entityName`, but it is entity-scoped — pass the entity, or pick one from `get_actions` with no arguments |
-| "could not be determined for this tenant" on `get_actions` / `execute_action` with no `entityName` | this deployment cannot resolve the standalone catalog — not a statement that none exist; use `get_actions` with an `entityName` |
-| action "is not available for entity" | the name is not in that entity's catalog — re-run `get_actions`, do not retry with a variant |
-| a parameter member rejected | it is unknown, calculated, read-only, the identifier, or the wrong type — re-read `describe_entity` on `parameterEntity` |
-| "Expected a duration string in [-][d.]hh:mm…" | a `Duration` parameter was sent as a number or as `"PT1H30M"` — resend it as `"01:30:00"` |
+| tool missing from the tool list | capability off for this deployment/tenant, or an own-data session (`execute_list`) |
+| list not found | wrong name, or not permitted for this user — re-run `get_lists`; do not try name variants |
 | `describe_list` returns no columns | the 5-row sample was empty (remote host always samples; local host samples only as a script-list fallback); supply parameters that select data |
 | parameter rejected | key missing its `@`, or the value is an object or array |
 | `condition` rejected | it references a hidden entity or breaks a guardrail; narrow with parameters instead |
 | `truncated: true` | the row cap applied; narrow the request, do not stitch pages |
-| `status: "confirmation_required"` | expected on a first action call; restate, then re-invoke with `confirmed: true` |
+| user asks to run a model action | not available over MCP in either host — the user runs it in the time cockpit UI |
 
 ## Related skills
 

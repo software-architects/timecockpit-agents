@@ -31,9 +31,10 @@ cockpit tenant and user, the sandbox, and the access/scope settings the server a
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| No mutating tools (`create_timesheet`, `create_entity`, `update_entity`, `delete_entity`, `execute_action`) | The connection runs with `access=readonly`. | Remove `X-access` / `/access/readonly` and reconnect — deliberately, after considering section 2 of `SKILL.md`. |
+| No mutating tools (`create_timesheet`, `create_object`, `update_object`, `delete_object`) | The connection runs with `access=readonly`. | Remove `X-access` / `/access/readonly` and reconnect — deliberately, after considering section 2 of `SKILL.md`. |
 | `execute_tcql_query`, `execute_list` and generic CRUD are missing, but `get_timesheets` works | The connection runs with `scope=owndata`, which hides everything that cannot be limited to the acting user. | Use the typed tools (`get_timesheets`, `create_timesheet`), or reconnect without `owndata` if broader access is genuinely intended. |
-| `get_lists` / `describe_list` / `execute_list` / `get_actions` / `execute_action` are absent | These depend on an optional server capability that is checked per deployment and tenant. Absence is expected, not a bug. | Use `execute_tcql_query` (outside `owndata`) or the typed tools instead. |
+| `get_lists` / `describe_list` / `execute_list` are absent | These depend on an optional server capability that is checked per deployment and tenant. Absence is expected, not a bug. | Use `execute_tcql_query` (outside `owndata`) or the typed tools instead. |
+| No tool for listing or running model actions | Model actions are not exposed through MCP on either host. | Run the action in the time cockpit UI. |
 | `entra_whoami` not found | It is remote-only. | Expected on the local stdio host; use `get_current_user` there. |
 | `execute_script_literal`, `execute_script_file`, `get_resource` or `timecockpit://` resources not found | They are local-only, trusted administrative capabilities and are never registered by the remote host. | Use the local stdio host and the `time-cockpit-local-mcp` skill from the team-internal `software-architects/tc-agents-internal` package. |
 | A tool is called by name and rejected even though it is not in the list | Hidden tools are also rejected at call time — hiding and authorization use the same rules. | Fix the configuration; do not retry the call. |

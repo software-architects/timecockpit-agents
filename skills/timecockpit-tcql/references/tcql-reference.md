@@ -397,7 +397,7 @@ Applied by the MCP server before the query is dispatched. All of them fail close
 | Permissions | The tenant's own model permissions still apply to every row and member. A query can legitimately return fewer rows than the data contains. |
 
 Only `Select` queries are executable; TCQL has no INSERT/UPDATE/DELETE form. Mutations go through
-`create_entity` / `update_entity` / `delete_entity` / `execute_action`.
+`create_object` / `update_object` / `delete_object`. Model actions are not available over MCP.
 
 ---
 

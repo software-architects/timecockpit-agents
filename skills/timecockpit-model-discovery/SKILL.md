@@ -3,7 +3,7 @@ name: timecockpit-model-discovery
 description: Explores a time cockpit tenant's customized data model over MCP with get_entities, describe_entity, get_environment and the local data model resources, and turns the result into technical names that actually exist. Use when a user asks which fields an entity has, how customers, projects, tasks and timesheets are related, what a tenant administrator customized, or before writing TCQL, a field projection, a list parameter, or any create, update or delete call.
 compatibility: Any agent connected to a time cockpit MCP server (remote HTTP host or local stdio host). The timecockpit:// resources and the get_resource fallback exist on the local host only.
 metadata:
-  version: "1.3"
+  version: "1.4"
 ---
 
 # time cockpit Model Discovery
@@ -49,7 +49,7 @@ Metadata is stable within a session: discover an entity once and reuse the resul
 | --- | --- |
 | `APP_` | shipped with time cockpit — `APP_Timesheet`, `APP_Project`, `APP_Task`, `APP_Customer`, `APP_UserDetail` |
 | `USR_` | added or defined by this tenant's administrator |
-| `SYS_` | internal entities and members; never exposed by entity discovery, `describe_entity`, TCQL, CRUD or actions. The one carve-out is a *named list* whose own stored name happens to begin with `SYS_`: a list is a signed model artifact and is never screened by its name, so `get_lists` may report one on either host |
+| `SYS_` | internal entities and members; never exposed by entity discovery, `describe_entity`, TCQL or CRUD. The one carve-out is a *named list* whose own stored name happens to begin with `SYS_`: a list is a signed model artifact and is never screened by its name, so `get_lists` may report one on either host |
 
 - Primary keys follow `<EntityName>Uuid`: `APP_Timesheet` gives `APP_TimesheetUuid`.
   `describe_entity` reports it as `primaryKeyName`, and record rows also carry it as
@@ -60,9 +60,9 @@ Metadata is stable within a session: discover an entity once and reuse the resul
 - Some model elements carry no prefix at all (action parameter entities in particular). Use the
   name exactly as the tool reported it; never normalize or "fix" it.
 - `label` is the caption the model defines for an element. It is the **language-neutral** caption
-  on every surface (`get_entities`, `describe_entity`, and likewise `friendlyName` on `get_lists`
-  and `displayName` on `get_actions`), not a translation into the user's language — a tenant whose
-  desktop is German still sees English captions here. Match the user's wording against `label`
+  on every surface (`get_entities`, `describe_entity`, and likewise `friendlyName` on
+  `get_lists`), not a translation into the user's language — a tenant whose desktop is German
+  still sees English captions here. Match the user's wording against `label`
   loosely, fall back to `name`, and always send `name` to the server.
 
 ## 3. Reading describe_entity
@@ -99,7 +99,7 @@ Metadata is stable within a session: discover an entity once and reuse the resul
 - `isRelation` / `relatedEntity` — a navigation to another entity. This is how the model is
   connected; there is no separate relations list.
 - `isCalculated` — evaluated from a formula, not stored. Read it, query it, filter on it; never
-  put it in `data` on `create_entity`/`update_entity` or in an action's parameters. The server
+  put it in `data` on `create_object`/`update_object`. The server
   rejects the write, so sending one costs a round trip and tells the user nothing. `isReadOnly` is
   set for the same members and for any other member the model does not permit writing.
 - `dataType` on a calculated member is the type its formula returns, so a calculated hour count
@@ -147,7 +147,8 @@ form it opens for editing. Shipped artifacts follow patterns like `APP_DefaultTi
 - `timecockpit://datamodel` — compact index of every visible entity with property, relation and
   trigger counts, plus visible list and action names. The fastest whole-model overview.
 - `timecockpit://datamodel/lists/{listName}` and `.../actions/{actionName}` — full definitions,
-  including query or script source.
+  including query or script source. Action definitions are read-only model metadata here: model
+  actions cannot be run over MCP on either host; the user runs them in the time cockpit UI.
 - `timecockpit://datamodel/entities/{entityName}/triggers/{triggerName}` — an enabled trigger.
 - `timecockpit://currentUser`, `timecockpit://globalSettings` — the same records as
   `get_environment`'s `currentUser`/`globalSettings`: relation members are `{objectUuid,
@@ -187,7 +188,7 @@ matching saved view, before telling the user the tenant does not track the conce
 Discovered names go straight into `timecockpit-tcql` (queries and filters),
 `timecockpit-time-tracking` (typed timesheet reads and writes, `fields` and `additionalFields`),
 `timecockpit-record-management` (generic create, update, delete),
-`timecockpit-lists-and-actions` (saved views and model actions) and `timecockpit-reporting`
+`timecockpit-lists-and-actions` (saved views) and `timecockpit-reporting`
 (turning results into figures). For connecting a client, access modes and scopes, see
 `timecockpit-mcp-setup`.
 
@@ -202,8 +203,7 @@ Discovered names go straight into `timecockpit-tcql` (queries and filters),
   both hosts.)
 - `get_entities` may report `truncated: true` when the response bound was reached; narrow with
   `nameContains` instead of assuming the model is that small.
-- Optional tools (`get_lists`, `describe_list`, `execute_list`, `get_actions`,
-  `execute_action`) may be absent for a deployment, tenant or session. Absence is a
-  configuration fact, not an error.
+- Optional tools (`get_lists`, `describe_list`, `execute_list`) may be absent for a deployment,
+  tenant or session. Absence is a configuration fact, not an error.
 - Never invent a property to make an answer fit. Report what the model does contain, and offer
   the closest discovered alternative.

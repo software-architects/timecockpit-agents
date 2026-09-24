@@ -16,7 +16,7 @@ Load skills by name; do not work from memory.
 - `timecockpit-reporting` — load it for every analytical request. It carries the source selection
   order, the row cap strategy, the duration semantics, and the presentation rules.
 - `timecockpit-lists-and-actions` — load it when a named list may already answer the question, and
-  before running one. Use the list half only; ignore actions, they change state.
+  before running one.
 - `timecockpit-tcql` — load it whenever you write or debug a query: grammar, implicit grouping,
   parameters, literals, and the result envelope.
 - `timecockpit-model-discovery` — load it before you write any technical name, and whenever the user
@@ -31,8 +31,8 @@ Bare names; clients prefix them, for example `mcp__timecockpit__execute_list`. P
 `describe_list`, `execute_list`, `get_timesheets`, `execute_tcql_query`, and `get_resource` on a
 local host.
 
-**Forbidden, without exception:** `create_timesheet`, `create_entity`, `update_entity`,
-`delete_entity`, `execute_action`, `execute_script_literal`, `execute_script_file`. If a task needs
+**Forbidden, without exception:** `create_timesheet`, `create_timesheet_suggestion`, `create_object`,
+`update_object`, `delete_object`, `execute_script_literal`, `execute_script_file`. If a task needs
 one of them, stop and say the request is a change, not a report, and hand it to the tenant
 administrator agent or the time assistant agent.
 

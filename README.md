@@ -3,8 +3,8 @@
 Agent Skills and agent definitions for working with **time cockpit** through AI agents.
 
 This package teaches an MCP-capable AI agent how to talk to a time cockpit tenant: how to explore a
-customized data model, write correct TCQL, review and book time, run the tenant's own saved lists and
-actions, change records safely, and build defensible reports.
+customized data model, write correct TCQL, review and book time, run the tenant's own saved lists,
+change records safely, and build defensible reports.
 
 No two tenants share the same model. The shipped `APP_` entities, lists and actions are normally
 present, but administrators add `USR_` entities, properties, relations, lists and actions, and may
@@ -102,8 +102,8 @@ one from its description; you can also name one explicitly ("use the timecockpit
 | `timecockpit-tcql` | Write and run read-only TCQL queries and interpret the tabular result, including grouping, parameters, row caps, and the common failure modes. |
 | `timecockpit-time-tracking` | Review, summarize, and book a user's own working time: daily and weekly summaries, gaps, overlaps, duplicates, and corrections. |
 | `timecockpit-reporting` | Answer analytical questions — hours per project, customer, user or period, budget versus actual, utilization, missing bookings, absences — with the read-only tools. |
-| `timecockpit-lists-and-actions` | Discover and run the tenant's named lists (saved views) and its model actions, including the confirmation handshake for state-changing actions. |
-| `timecockpit-record-management` | Create, update, and delete records through the generic tools, with the discovery step, the confirmation handshake, and a verification re-read. |
+| `timecockpit-lists-and-actions` | Discover and run the tenant's named lists (saved views). Model actions are not available over MCP; they are run in the time cockpit UI. The skill keeps its historical name. |
+| `timecockpit-record-management` | Create, update, and delete records through the generic object tools (`create_object`, `update_object`, `delete_object`), with the discovery step, the confirmation handshake, and a verification re-read. |
 
 The administrative scripting skill `time-cockpit-local-mcp` (IronPython migrations and model
 introspection through the local host, Windows only) and the internal customization, documentation and
@@ -115,11 +115,17 @@ content skills live in the team-internal `software-architects/tc-agents-internal
 | --- | --- | --- |
 | `timecockpit-time-assistant` | Everyone who books time | Reviews and summarizes your own hours, finds gaps and overlaps, and books entries — always confirming before it writes. Never touches other people's data. |
 | `timecockpit-reporting-analyst` | Controllers, project leads | Answers hours, budget, utilization, billing, and absence questions read-only, through named lists and aggregating queries, always stating the data window and scope. |
-| `timecockpit-tenant-admin` | Tenant administrators | Discovers the customized model, runs lists and actions, and performs careful generic create, update, and delete operations one change at a time, verifying afterwards. |
+| `timecockpit-tenant-admin` | Tenant administrators | Discovers the customized model, runs named lists, and performs careful generic create, update, and delete operations one change at a time, verifying afterwards. |
 
 Agents are entry points, not replacements for the skills: each one loads the skills it needs.
 
 ## MCP server at a glance
+
+**Availability:** the time cockpit MCP server is currently available to selected customers only.
+If your tenant is not enabled for it, ask your tenant administrator or time cockpit support at
+<support@timecockpit.com>.
+
+Model actions are not exposed through MCP on either host; run them in the time cockpit UI.
 
 **Remote (hosted).** `https://mcp.timecockpit.com`, HTTP transport, sign-in with your Microsoft
 Entra account. Per-session settings are passed either as a request header or as a route segment, one
@@ -143,7 +149,7 @@ For the actual client configuration files, the sign-in flow, and troubleshooting
 
 ## Safety notes
 
-- **Mutations are confirmation gated.** Generic create, update, delete, and generic action calls
+- **Mutations are confirmation gated.** Generic object create, update, and delete calls
   return `confirmation_required` on the first call and only run when the caller re-invokes with
   `confirmed=true`. Confirmation is a deployment setting: it cannot be set per request, and an
   operator may disable it for a disposable sandbox. The skills confirm with the user regardless.
@@ -154,7 +160,7 @@ For the actual client configuration files, the sign-in flow, and troubleshooting
   aggregate or narrow instead of stitching pages, and never total a truncated result.
 - **No system data.** `SYS_` and internal entities are invisible on every MCP surface, and
   referencing one is rejected. There is no metadata back door.
-- **Deletes and actions have no undo.** One record per call, one confirmation per record, and a
+- **Deletes have no undo.** One record per call, one confirmation per record, and a
   verification read afterwards.
 
 ## Versioning

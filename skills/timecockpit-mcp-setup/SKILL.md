@@ -3,7 +3,7 @@ name: timecockpit-mcp-setup
 description: Connects an AI client (Claude Code, Claude Desktop, VS Code Copilot, Copilot CLI, Codex CLI, Cursor) to the time cockpit MCP server at mcp.timecockpit.com, or to the local stdio host started with OnCockpit.Admin.exe --mcp, and selects the right tenant, sandbox, read-only and own-data settings. Use when setting up, changing or sharing an MCP connection, when sign-in fails ("does not support dynamic client registration", 401, 403, consent), when expected tools are missing from the tool list, when the agent talks to the wrong tenant or to the test sandbox instead of production, and when installing the timecockpit-agents skills with apm or skills.sh (npx skills).
 compatibility: The remote host needs a Microsoft Entra ID work account with time cockpit access and an MCP client that speaks HTTP transport with a pre-registered OAuth client id (Entra does not support dynamic client registration). The local stdio host needs an installed time cockpit desktop client and is Windows only.
 metadata:
-  version: "1.3"
+  version: "1.4"
 ---
 
 # time cockpit MCP setup
@@ -11,6 +11,10 @@ metadata:
 Getting an AI agent onto a time cockpit tenant is three decisions and one verification sequence:
 **which host**, **which tenant/sandbox**, **how much power the agent gets**. Everything else is
 client-specific JSON, which lives in `references/client-configs.md`.
+
+**Availability:** the time cockpit MCP server is currently available to selected customers only.
+If sign-in works but your tenant is not enabled for it, ask your tenant administrator or time
+cockpit support at <support@timecockpit.com>.
 
 Tool names in these skills are bare (`ping`, `get_timesheets`). Most clients prefix them at
 runtime — `mcp__timecockpit__ping`, `mcp_timecockpit_ping`. Same tools.
@@ -127,13 +131,16 @@ Three reasons a tool legitimately disappears — check them before reporting a b
 
 | Cause | What vanishes |
 |---|---|
-| `access=readonly` | Every mutating tool: `create_timesheet`, `create_entity`, `update_entity`, `delete_entity`, `execute_action`, and the local script tools. |
-| `scope=owndata` | Every tool whose result cannot be pinned to the acting user: `execute_tcql_query`, `execute_list`, `execute_action`, `create_entity`, `update_entity`, `delete_entity`. `get_timesheets` and `create_timesheet` remain, filtered to that user. |
-| Optional server capability | `get_lists`, `describe_list`, `execute_list`, `get_actions`, `execute_action` sit on a backing capability that is checked per deployment and tenant. They are genuinely absent when it is unavailable — not unconditionally available anywhere. |
+| `access=readonly` | Every mutating tool: `create_timesheet`, `create_object`, `update_object`, `delete_object`, and the local-only `create_timesheet_suggestion` and script tools. |
+| `scope=owndata` | Every tool whose result cannot be pinned to the acting user: `execute_tcql_query`, `execute_list`, `create_object`, `update_object`, `delete_object`. `get_timesheets` and `create_timesheet` remain, filtered to that user. |
+| Optional server capability | `get_lists`, `describe_list`, `execute_list` sit on a backing capability that is checked per deployment and tenant. They are genuinely absent when it is unavailable — not unconditionally available anywhere. |
 
 Hosts differ as well: `entra_whoami` is remote-only, while `execute_script_literal`,
 `execute_script_file`, `get_resource` and the `timecockpit://` model resources are local-only.
 A hidden tool is also rejected when called by name, so guessing gets you nowhere.
+
+Model actions are not exposed through MCP on either host, so no action tool ever appears; that is by
+design, not a missing capability. Run model actions in the time cockpit UI.
 
 ## 8. The local stdio host
 
@@ -196,4 +203,4 @@ installing, create the `timecockpit` server entry in your client by hand (sectio
   `timecockpit-reporting` (totals, budgets, utilization), `timecockpit-tcql` (ad-hoc queries),
   `timecockpit-model-discovery` (what this tenant's model actually looks like),
   `timecockpit-record-management` (create, update, delete), `timecockpit-lists-and-actions`
-  (named lists and model actions), and `time-cockpit-local-mcp` from the internal `software-architects/tc-agents-internal` package (administrative script execution).
+  (named lists), and `time-cockpit-local-mcp` from the internal `software-architects/tc-agents-internal` package (administrative script execution).

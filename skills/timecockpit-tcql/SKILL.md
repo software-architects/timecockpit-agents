@@ -3,7 +3,7 @@ name: timecockpit-tcql
 description: Writes and runs read-only TCQL (Time Cockpit Query Language) queries through the MCP tool execute_tcql_query and interprets the TabularResult it returns. Use for ad-hoc data questions, reporting and totals across customers, projects, tasks, users or periods, for cross-entity lookups and resolving a record UUID from a code or name, and whenever a TCQL query was rejected, returned no rows, or came back with unexpected column names.
 compatibility: Requires a connected time cockpit MCP server (remote or local stdio host) exposing execute_tcql_query, get_entities and describe_entity. execute_tcql_query is hidden and rejected when the session is restricted to own data (Scope=OwnData) — use get_timesheets there instead. Tool names may carry a client prefix.
 metadata:
-  version: "1.3"
+  version: "1.4"
 ---
 
 # Time Cockpit TCQL
@@ -13,7 +13,7 @@ tenant's own data model. `execute_tcql_query` is the **escape hatch** for questi
 answers. Tool names are bare here; most clients prefix them (`mcp__time_cockpit__execute_tcql_query`).
 
 Related skills: `timecockpit-time-tracking` (own hours, booking), `timecockpit-record-management`
-(create/update/delete), `timecockpit-lists-and-actions` (named lists, model actions).
+(create/update/delete), `timecockpit-lists-and-actions` (named lists).
 
 ## 1. Pick the cheapest tool that answers the question
 
