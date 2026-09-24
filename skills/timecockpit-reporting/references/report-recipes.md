@@ -24,20 +24,29 @@ Shipped named lists worth checking with `get_lists` before writing any query:
 `APP_UnbilledTimesheetsList`, `APP_VacationPerEffectiveDateList`,
 `APP_OvertimePerEffectiveDateList`, `APP_DefaultWorkingTimeViolationList`.
 
+## Which project and customer a booking counts for
+
+time cockpit attributes a booking with a task to the **task's** project. After a task is moved,
+its old bookings still carry the previous `APP_Project`, and project codes repeat across
+customers. So every recipe here keys on the effective project's UUID
+(`:Iif(T.APP_Task = Null, T.APP_Project.APP_ProjectUuid, T.APP_Task.APP_Project.APP_ProjectUuid)`)
+and shows its `APP_Fullname`; the full set of expressions, the matching filter and a check for
+affected bookings are in the `timecockpit-tcql` cookbook.
+
 ## Hours per customer and project
 
 ```
 From T In APP_Timesheet
 Where T.APP_BeginTime >= @FromDate And T.APP_BeginTime < @ToDate
 Select New With {
-  .Customer = T.APP_Project.APP_Customer.APP_CompanyName,
-  .Project  = T.APP_Project.APP_ProjectName,
-  .Hours    = Sum(T.APP_DurationInHours),
-  .Bookings = Count(T.APP_TimesheetUuid) }
+  .ProjectId = :Iif(T.APP_Task = Null, T.APP_Project.APP_ProjectUuid, T.APP_Task.APP_Project.APP_ProjectUuid),
+  .Project   = :Iif(T.APP_Task = Null, T.APP_Project.APP_Fullname,    T.APP_Task.APP_Project.APP_Fullname),
+  .Hours     = Sum(T.APP_DurationInHours),
+  .Bookings  = Count() }
 ```
 
-Drop `.Project` for customer totals only; drop both grouping keys and keep the aggregates for a
-single grand-total row.
+`APP_Fullname` reads "Customer.Project". For customer totals swap the project pair for
+`.CustomerId`/`.Customer` (cookbook); drop all grouping keys for a single grand-total row.
 
 ## Hours per user for a period
 
@@ -58,12 +67,14 @@ For one user only, prefer `get_timesheets(from, to, userDetailId)` and total the
 From T In APP_Timesheet
 Where T.APP_BeginTime >= @FromDate And T.APP_BeginTime < @ToDate
 Select New With {
-  .Project  = T.APP_Project.APP_ProjectName,
-  .Billable = T.APP_Billable,
-  .Hours    = Sum(T.APP_DurationInHours) }
+  .ProjectId     = :Iif(T.APP_Task = Null, T.APP_Project.APP_ProjectUuid, T.APP_Task.APP_Project.APP_ProjectUuid),
+  .Project       = :Iif(T.APP_Task = Null, T.APP_Project.APP_Fullname,    T.APP_Task.APP_Project.APP_Fullname),
+  .Hours         = Sum(T.APP_DurationInHours),
+  .BillableHours = Sum(:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0)) }
 ```
 
-Two rows per project (`True`/`False`). Present it as a table with a billable share per project.
+One row per project with the billable share computable per row. The explicit `= True` is needed
+(`timecockpit-tcql` §5).
 `APP_Billable` is the flag on the booking; `APP_Billed` says whether it has been invoiced -- they
 answer different questions.
 
@@ -73,19 +84,24 @@ TCQL aggregates one entity's rows at a time, so run two small queries and join c
 
 ```
 From P In APP_Project
-Where P.APP_Closed = False
-Select Top(100) New With { P.APP_Code, P.APP_ProjectName, P.APP_BudgetInHours }
+Where P.APP_Closed = False And P.APP_BudgetInHours > 0
+Select Top(100) New With { P.APP_ProjectUuid, P.APP_Fullname, P.APP_BudgetInHours }
 ```
 
 ```
 From T In APP_Timesheet
 Where T.APP_BeginTime < @ToDate
-Select New With {
-  .Code  = T.APP_Project.APP_Code,
-  .Hours = Sum(T.APP_DurationInHours) }
+  And ((T.APP_Task = Null And T.APP_Project.APP_Closed = False And T.APP_Project.APP_BudgetInHours > 0)
+    Or (T.APP_Task <> Null And T.APP_Task.APP_Project.APP_Closed = False And T.APP_Task.APP_Project.APP_BudgetInHours > 0))
+Select Top(100) New With {
+  .ProjectId = :Iif(T.APP_Task = Null, T.APP_Project.APP_ProjectUuid, T.APP_Task.APP_Project.APP_ProjectUuid),
+  .Hours     = Sum(T.APP_DurationInHours) }
 ```
 
-Match on `APP_Code`, then report booked, budget, remaining and percent consumed. Say whether the
+The `Where` applies the project filter to the effective project, so the second query returns only
+the projects of the first and stays under the row cap. Match the rows on the project UUID — never
+on `APP_Code`, which repeats across customers — then report booked, budget, remaining and percent
+consumed. Say whether the
 actual figure covers the whole project life or only the queried window -- booked-to-date needs no
 lower bound. Check `APP_BudgetaryControlOfProjectsList` first; where it exists, it already answers
 this question with the tenant's own definition.

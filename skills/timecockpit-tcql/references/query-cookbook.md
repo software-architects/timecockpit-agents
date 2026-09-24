@@ -15,6 +15,14 @@ Before you reuse one:
 - Remember the renaming: `T.APP_DurationInHours` comes back as `USR_DurationInHours`,
   `.Hours = Sum(…)` as `USR_Hours`. Read `columns` before building a table.
 
+**Contents:** Shipped entities · The effective project and customer of a booking ·
+1 Hours per project · 2 My hours per project · 3 Hours per user and month · 4 Billable hours and
+revenue per customer · 4a Total and billable hours side by side · 5 Recent bookings of one project ·
+6 Projects of a customer · 7 Open tasks · 8 Resolve a UUID · 9 Budget burn-down ·
+10 Totals per customer · 11 Active users · 12 Bookings per user · 13 Absences · 14 Invoices ·
+15 Planned vs. actual working time · 16 Size of an answer · 17 Bookings whose project and task
+disagree
+
 ---
 
 ## Shipped entities you will use most
@@ -34,20 +42,47 @@ Before you reuse one:
 
 ---
 
+## The effective project and customer of a booking
+
+time cockpit counts a booking for its **task's** project whenever a task is set, and for
+`APP_Project` otherwise. The two relations can disagree — moving a task to another project leaves
+its old bookings pointing at the previous project — and project codes are not unique across
+customers. Every recipe below therefore keys on the effective project's UUID:
+
+```
+.ProjectId  = :Iif(T.APP_Task = Null, T.APP_Project.APP_ProjectUuid, T.APP_Task.APP_Project.APP_ProjectUuid),
+.Project    = :Iif(T.APP_Task = Null, T.APP_Project.APP_Fullname,    T.APP_Task.APP_Project.APP_Fullname),
+.CustomerId = :Iif(T.APP_Task = Null, T.APP_Project.APP_Customer.APP_CustomerUuid, T.APP_Task.APP_Project.APP_Customer.APP_CustomerUuid),
+.Customer   = :Iif(T.APP_Task = Null, T.APP_Project.APP_Customer.APP_CompanyName,  T.APP_Task.APP_Project.APP_Customer.APP_CompanyName)
+```
+
+Filtering on one project needs both paths (resolve `@ProjectId` first, see #8):
+
+```
+Where (T.APP_Task = Null And T.APP_Project.APP_ProjectUuid = @ProjectId)
+   Or T.APP_Task.APP_Project.APP_ProjectUuid = @ProjectId
+```
+
+`APP_ProjectCodeActual` and `APP_CompanyNameActual` follow the same task-first rule and are fine for
+display, but not as a grouping or filter key: equal codes or names merge different records.
+
+---
+
 ## 1. Hours per project in a period
 
 ```
 From T In APP_Timesheet
 Where T.APP_BeginTime >= #2026-09-01# And T.APP_BeginTime < #2026-10-01#
 Select Top(100) New With {
-  .Project  = T.APP_Project.APP_Code,
-  .Hours    = Sum(T.APP_DurationInHours),
-  .Bookings = Count()
+  .ProjectId = :Iif(T.APP_Task = Null, T.APP_Project.APP_ProjectUuid, T.APP_Task.APP_Project.APP_ProjectUuid),
+  .Project   = :Iif(T.APP_Task = Null, T.APP_Project.APP_Fullname,    T.APP_Task.APP_Project.APP_Fullname),
+  .Hours     = Sum(T.APP_DurationInHours),
+  .Bookings  = Count()
 }
 ```
 
-One row per project. Add `.Customer = T.APP_Project.APP_Customer.APP_CompanyName` to also group by
-customer. Sort the returned rows yourself — ordering by an aggregate is not supported.
+One row per project; `APP_Fullname` already reads "Customer.Project". Sort the returned rows
+yourself — ordering by an aggregate is not supported.
 
 ## 2. My own hours per project this month
 
@@ -56,8 +91,9 @@ From T In APP_Timesheet
 Where T.APP_UserDetail.APP_UserDetailUuid = Environment.CurrentUser.APP_UserDetailUuid
   And T.APP_BeginTime >= #2026-09-01# And T.APP_BeginTime < #2026-10-01#
 Select Top(100) New With {
-  .Project = T.APP_Project.APP_Code,
-  .Hours   = Sum(T.APP_DurationInHours)
+  .ProjectId = :Iif(T.APP_Task = Null, T.APP_Project.APP_ProjectUuid, T.APP_Task.APP_Project.APP_ProjectUuid),
+  .Project   = :Iif(T.APP_Task = Null, T.APP_Project.APP_Fullname,    T.APP_Task.APP_Project.APP_Fullname),
+  .Hours     = Sum(T.APP_DurationInHours)
 }
 ```
 
@@ -86,9 +122,10 @@ From T In APP_Timesheet
 Where T.APP_BeginTime >= #2026-07-01# And T.APP_BeginTime < #2026-10-01#
   And T.APP_Billable = True
 Select Top(100) New With {
-  .Customer = T.APP_Project.APP_Customer.APP_CompanyName,
-  .Hours    = Sum(T.APP_DurationInHours),
-  .Revenue  = Sum(T.APP_Revenue)
+  .CustomerId = :Iif(T.APP_Task = Null, T.APP_Project.APP_Customer.APP_CustomerUuid, T.APP_Task.APP_Project.APP_Customer.APP_CustomerUuid),
+  .Customer   = :Iif(T.APP_Task = Null, T.APP_Project.APP_Customer.APP_CompanyName,  T.APP_Task.APP_Project.APP_Customer.APP_CompanyName),
+  .Hours      = Sum(T.APP_DurationInHours),
+  .Revenue    = Sum(T.APP_Revenue)
 }
 ```
 
@@ -96,11 +133,30 @@ Select Top(100) New With {
 the figures are time-cockpit-calculated, not invoiced amounts — invoiced amounts live on
 `APP_Invoice`.
 
+## 4a. Total and billable hours side by side (conditional sum)
+
+```
+From T In APP_Timesheet
+Where T.APP_BeginTime >= #2026-01-01# And T.APP_BeginTime < #2026-02-01#
+  And ((T.APP_Task = Null And T.APP_Project.APP_ProjectUuid = @ProjectId)
+       Or T.APP_Task.APP_Project.APP_ProjectUuid = @ProjectId)
+Select Top(100) New With {
+  .Employee      = T.APP_UserDetail.APP_Fullname,
+  .Hours         = Sum(T.APP_DurationInHours),
+  .BillableHours = Sum(:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0)),
+  .Revenue       = Sum(T.APP_Revenue)
+}
+```
+
+`parameters: {"@ProjectId": "<project uuid from #8>"}`. One row per employee, with total and
+billable hours in the same row thanks to `:Iif` inside `Sum`.
+
 ## 5. Recent bookings of one project, with row ids
 
 ```
 From T In APP_Timesheet
-Where T.APP_Project.APP_Code = @Code
+Where ((T.APP_Task = Null And T.APP_Project.APP_ProjectUuid = @ProjectId)
+       Or T.APP_Task.APP_Project.APP_ProjectUuid = @ProjectId)
   And T.APP_BeginTime >= #2026-09-01#
 Order By T.APP_BeginTime Desc
 Select Top(50) New With {
@@ -110,7 +166,7 @@ Select Top(50) New With {
 }
 ```
 
-`parameters: {"@Code": "PROJ-001"}`. `.Id` is the real timesheet key — the `objectUuid` of a
+`parameters: {"@ProjectId": "<project uuid from #8>"}`. `.Id` is the real timesheet key — the `objectUuid` of a
 `New With { … }` row is only a generated per-row id that changes on every run, so project the real
 key explicitly whenever it will be used to identify a record.
 
@@ -150,7 +206,7 @@ Select Top(100) New With {
 
 ```
 From P In APP_Project Where P.APP_Code = @Code
-Select Top(5) New With { P.APP_ProjectUuid, P.APP_Code, P.APP_ProjectName, P.APP_Closed }
+Select Top(5) New With { P.APP_ProjectUuid, P.APP_Fullname, P.APP_ProjectName, P.APP_Closed }
 ```
 
 ```
@@ -158,8 +214,9 @@ From Ta In APP_Task Where Ta.APP_Code = @Code And Ta.APP_Project.APP_Code = @Pro
 Select Top(5) New With { Ta.APP_TaskUuid, Ta.APP_Code, Ta.APP_Description }
 ```
 
-Ask for `Top(5)`, not `Top(1)`: if more than one record matches, or none does, let the user choose
-instead of picking one. The key comes back as `USR_ProjectUuid` / `USR_TaskUuid`.
+Ask for `Top(5)`, not `Top(1)`: project codes are not unique across customers, so several matches
+are normal. Show `APP_Fullname` ("Customer.Project") and let the user choose instead of picking one.
+The key comes back as `USR_ProjectUuid` / `USR_TaskUuid`.
 
 ## 9. Budget burn-down per project
 
@@ -175,6 +232,12 @@ Select Top(50) New With {
 
 A project with no bookings returns `null`, not `0` — treat null as zero when computing the
 remaining budget, and do the subtraction and percentage yourself when presenting.
+
+`P.Timesheets` follows `APP_Timesheet.APP_Project` only, so bookings whose task was moved to or from
+this project are counted for the wrong one. That is fine for a quick scan; for figures someone will
+act on, aggregate the bookings by effective project (#1 without the date filter, narrowed to the
+projects in question so the groups stay under the row cap) and match the rows to the projects by
+UUID yourself. Run #17 to see how many bookings are affected.
 
 ## 10. Project counts and totals per customer
 
@@ -275,3 +338,26 @@ Select Top(1) New With { .Entries = Count(), .Hours = Sum(T.APP_DurationInHours)
 
 One row, no grouping keys. Use this when a row-level query came back `truncated: true`, so you can
 tell the user the true total and then decide how to slice the detail.
+
+## 17. Bookings whose project and task disagree
+
+```
+From T In APP_Timesheet
+Where T.APP_Task <> Null And T.APP_Project <> Null
+  And T.APP_Project.APP_ProjectUuid <> T.APP_Task.APP_Project.APP_ProjectUuid
+Order By T.APP_BeginTime Desc
+Select Top(50) New With {
+  .Id            = :ObjectUuid(T),
+  .Day           = T.APP_DateActual,
+  .Employee      = T.APP_UserDetail.APP_Fullname,
+  .DirectProject = T.APP_Project.APP_Fullname,
+  .TaskProject   = T.APP_Task.APP_Project.APP_Fullname,
+  T.APP_DurationInHours
+}
+```
+
+These are bookings whose task was moved to another project after they were made. time cockpit
+counts them for `TaskProject`, so reports keyed on the effective project are already right; the
+list explains why a figure built from `APP_Project` or `P.Timesheets` differs. Report the rows and
+let the user decide — never "fix" them. For just the size of the problem, replace the projection
+with `.Entries = Count(), .Hours = Sum(T.APP_DurationInHours)` as in #16.

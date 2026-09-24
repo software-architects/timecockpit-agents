@@ -3,6 +3,11 @@
 Complete syntax reference for queries sent to `execute_tcql_query`. Load this when you need an
 exact function signature, a construct not covered in SKILL.md, or the precise guardrail rules.
 
+**Contents:** 1. Statement grammar · 2. Expressions (literals, Null semantics, Booleans, date
+arithmetic, Like) · 3. Parameters · 4. Functions · 5. Aggregation and implicit grouping ·
+6. Relations, back references and sub-queries · 7. Include · 8. In Set and Environment ·
+9. Anonymous vs typed projections · 10. Server-side guardrails · 11. Result envelope
+
 ---
 
 ## 1. Statement grammar
@@ -105,6 +110,22 @@ SQL three-valued logic. Verified against a live tenant on a nullable Boolean who
 So a nullable flag needs the explicit `Or … = Null` branch. `describe_entity` reports
 `isRequired`; only a required property is safe to compare directly.
 
+### Booleans need an explicit comparison
+
+A bare Boolean member is not accepted as a condition. Verified against a live tenant:
+
+| Expression | Result |
+|---|---|
+| `Where … And T.APP_Billable` (calculated member) | rejected |
+| `Where … And T.APP_NoBilling` (stored member) | rejected |
+| `:Iif(T.APP_Billable, T.APP_DurationInHours, 0)` | rejected (inside or outside an aggregate) |
+| `Where … And T.APP_Billable = True` | works |
+| `:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0)` | works |
+| `Sum(:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0))` | works |
+
+The server's error for the rejected forms is a generic "An error occurred invoking" with no hint,
+so check for a bare Boolean first when a query that looks right fails.
+
 ### Arithmetic on date/time values
 
 Subtracting two date+time values yields **days** as a decimal, Excel-style:
@@ -182,7 +203,7 @@ Functions start with a colon. Argument counts and types depend on the function.
 | `:Soundex(s)` | server database only |
 | `:Round(n, digits)` | |
 | `:FormatNumber(n, format)` | .NET numeric format string |
-| `:Iif(condition, trueValue, falseValue)` | usable in `Where` and `Select` |
+| `:Iif(condition, trueValue, falseValue)` | usable in `Where` and `Select`, also inside `Sum(…)`; `condition` must be a comparison (`X = True`), not a bare Boolean |
 
 ### Records and model
 
@@ -237,6 +258,11 @@ groups by user **and** period. Removing `.Period` collapses to one row per user.
 Sorting by an aggregated value is not supported against the local data store — order by a grouped
 expression, or sort the returned rows yourself when presenting them.
 
+A scalar function may sit inside an aggregate. The common case is a conditional total:
+`Sum(:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0))` sums only billable hours without
+adding a grouping level. The alternative — projecting `.IsBillable = T.APP_Billable` as a grouping
+key — also works, but doubles the row count and leaves the pivoting to you.
+
 ---
 
 ## 6. Relations, back references and sub-queries
@@ -256,6 +282,12 @@ expression, or sort the returned rows yourself when presenting them.
 | `APP_UserDetail` | `U.Timesheets` | `APP_Timesheet` |
 | `APP_Customer` | `C.Projects` | `APP_Project` |
 | `APP_Customer` | `C.Projects.Timesheets` | chained over two levels |
+
+`P.Timesheets` and `C.Projects.Timesheets` follow `APP_Timesheet.APP_Project` only. time cockpit
+itself attributes a booking with a task to the task's project, and the two can differ when a task
+was moved to another project after booking. Use these back references for quick scans; for
+figures that must match time cockpit, aggregate `APP_Timesheet` by the effective project instead
+(query cookbook, "The effective project and customer of a booking").
 
 Back-reference names carry **no** `APP_`/`USR_` prefix. For a tenant-defined relation, discover its
 back-reference name with `:BackreferenceFriendlyName('<Entity>.<Relation>')`, or ask the tenant

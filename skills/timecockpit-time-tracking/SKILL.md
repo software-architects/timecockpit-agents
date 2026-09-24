@@ -3,7 +3,7 @@ name: timecockpit-time-tracking
 description: Reviews, summarizes, and books a user's own working time in time cockpit over the connected MCP server. Use when someone asks what they worked on, wants a daily, weekly, or per-project summary of their hours, wants to find gaps, overlaps, or duplicate bookings in their timesheet, wants to book hours on a project or task, or wants to correct their recorded time.
 compatibility: Requires a connected time cockpit MCP server (remote or local stdio host) exposing get_current_user, get_timesheets and describe_entity. create_timesheet is hidden and rejected when the session runs with read-only access; execute_tcql_query is hidden when the session is restricted to own data. create_timesheet_suggestion is local-stdio-only today; remote support is pending, so the tool is absent from the remote server.
 metadata:
-  version: "1.4"
+  version: "1.5"
 ---
 
 # Time Cockpit Time Tracking
@@ -75,8 +75,11 @@ when the related record was not loaded.
   08:30 in the user's own working day. Do not convert to UTC, do not add `Z` or an offset, and do
   not restate times in another zone.
 - Group by day using the date part of `APP_BeginTime` (or `APP_DateActual`, a shipped calculated
-  date). Group per project using `APP_ProjectCodeActual`, or `APP_Project.displayValue` from the
-  relation object.
+  date). Group per project using `APP_ProjectCodeActual` together with `APP_CompanyNameActual`:
+  both follow time cockpit's rule that a booking counts for its task's project, while
+  `APP_Project.displayValue` is only the direct relation and can be stale after a task was moved.
+  Project codes repeat across customers, so the code alone is not enough. When a UUID-exact split
+  matters and TCQL is available, use the per-project recipe in the `timecockpit-tcql` cookbook.
 - State totals in hours with one or two decimals *and* say which period and which filters produced
   them. Report the count of entries alongside the total so the user can sanity-check.
 - Entries with `APP_IsDurationTimesheet = true` are duration-only bookings; their begin/end times

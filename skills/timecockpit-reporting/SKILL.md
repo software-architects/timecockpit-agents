@@ -3,7 +3,7 @@ name: timecockpit-reporting
 description: Answers analytical questions about time cockpit data with the read-only MCP tools — hours per project, customer, user or period, budget versus actual, utilization, missing bookings and absence overviews — using named lists where the tenant has them and aggregating TCQL queries otherwise. Use when the user asks how many hours, how much was booked or billed, who is over or under budget, what is still missing, or asks for a summary, breakdown, totals or an export of time data. Not for creating or changing records (see timecockpit-record-management).
 compatibility: Requires an AI client connected to a time cockpit MCP server (remote or local host). Named-list tools depend on an optional server capability and may be absent. Tool names may carry a client prefix.
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # Time Cockpit Reporting
@@ -64,11 +64,20 @@ as `:Iif`).
 ```
 From T In APP_Timesheet
 Where T.APP_BeginTime >= @FromDate And T.APP_BeginTime < @ToDate
-Select New With { .Project = T.APP_Project.APP_ProjectName, .Hours = Sum(T.APP_DurationInHours) }
+Select New With {
+  .ProjectId = :Iif(T.APP_Task = Null, T.APP_Project.APP_ProjectUuid, T.APP_Task.APP_Project.APP_ProjectUuid),
+  .Project   = :Iif(T.APP_Task = Null, T.APP_Project.APP_Fullname,    T.APP_Task.APP_Project.APP_Fullname),
+  .Hours     = Sum(T.APP_DurationInHours) }
 ```
 
-Add `.Customer = T.APP_Project.APP_Customer.APP_CompanyName` and you group by customer *and*
-project. Remove `.Project` and you get one row per customer. That is the whole mechanism.
+Remove `.Project`/`.ProjectId` and add the customer pair instead, and you get one row per customer.
+That is the whole mechanism.
+
+Why the `:Iif`: time cockpit counts a booking for its task's project, bookings can still point at
+an older project after their task was moved, and project codes repeat across customers. Grouping
+by `T.APP_Project…` or by a code therefore misattributes or merges projects. The effective-project
+and effective-customer expressions, the matching filter and a check for affected bookings are in
+the `timecockpit-tcql` cookbook.
 
 Two limits to plan around:
 
@@ -76,6 +85,10 @@ Two limits to plan around:
   the returned rows yourself.
 - `Top(N)` caps the number of **result rows**, i.e. groups. 100 groups is usually plenty; 100 raw
   bookings is not. If a grouped result is still truncated, the grouping is too fine.
+
+For a total and a subset in the same row, wrap `:Iif` in the aggregate:
+`.BillableHours = Sum(:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0))`. The explicit
+`= True` is needed — see `timecockpit-tcql` §5.
 
 Pass user-supplied values as parameters (`@FromDate`, `@ToDate`, ...), never interpolated into the query
 text. Comments (`//`, `/* */`) are rejected outright. Full syntax lives in `timecockpit-tcql`.
@@ -124,7 +137,8 @@ get_lists(filter: 'budget')                      -> nothing usable? fall through
 describe_entity('APP_Timesheet')                 -> confirm APP_DurationInHours + USR_ dimensions
 execute_tcql_query(
   "From T In APP_Timesheet Where T.APP_BeginTime >= @FromDate And T.APP_BeginTime < @ToDate
-   Select New With { .Project = T.APP_Project.APP_ProjectName, .Hours = Sum(T.APP_DurationInHours) }",
+   Select New With { .ProjectId = <effective project uuid>, .Project = <effective project name>,
+                     .Hours = Sum(T.APP_DurationInHours) }",
   { "@FromDate": "2026-04-01", "@ToDate": "2026-05-01" })
 -> sort by hours client-side, table + total, note the window
 ```
@@ -135,8 +149,9 @@ Budget vs. actual:
 get_lists(filter: 'budget')                      -> APP_BudgetaryControlOfProjectsList?
 describe_list('APP_BudgetaryControlOfProjectsList')
 execute_list('APP_BudgetaryControlOfProjectsList')
--> otherwise: query APP_Project (APP_Code, APP_ProjectName, APP_BudgetInHours) and the
-   Sum(APP_DurationInHours) per project separately, then join the two small results yourself
+-> otherwise: query APP_Project (APP_ProjectUuid, APP_Fullname, APP_BudgetInHours) and the
+   Sum(APP_DurationInHours) per effective project separately, then join the two small results
+   yourself on the project UUID — never on the code
 ```
 
 More patterns, including per-user utilization, missing bookings and absence overviews:

@@ -3,7 +3,7 @@ name: timecockpit-tcql
 description: Writes and runs read-only TCQL (Time Cockpit Query Language) queries through the MCP tool execute_tcql_query and interprets the TabularResult it returns. Use for ad-hoc data questions, reporting and totals across customers, projects, tasks, users or periods, for cross-entity lookups and resolving a record UUID from a code or name, and whenever a TCQL query was rejected, returned no rows, or came back with unexpected column names.
 compatibility: Requires a connected time cockpit MCP server (remote or local stdio host) exposing execute_tcql_query, get_entities and describe_entity. execute_tcql_query is hidden and rejected when the session is restricted to own data (Scope=OwnData) — use get_timesheets there instead. Tool names may carry a client prefix.
 metadata:
-  version: "1.2"
+  version: "1.3"
 ---
 
 # Time Cockpit TCQL
@@ -59,7 +59,7 @@ Where T.APP_BeginTime >= #2026-09-01# And T.APP_BeginTime < #2026-10-01#
 Order By T.APP_BeginTime Desc
 Select Top(50) New With {
   T.APP_BeginTime, T.APP_EndTime, T.APP_Description, T.APP_DurationInHours,
-  .Project = T.APP_Project.APP_Code,
+  .Project = T.APP_ProjectCodeActual,
   .Id      = :ObjectUuid(T)
 }
 ```
@@ -101,6 +101,11 @@ related record.
   `Where U.APP_IsEnabled <> False` both drop the Null rows. Write
   `Where U.APP_IsEnabled = True Or U.APP_IsEnabled = Null`, or filter on a required property
   instead. Check `isRequired` in `describe_entity` before comparing a Boolean.
+- **Compare Booleans explicitly.** A bare Boolean member is not accepted as a condition —
+  `Where … And T.APP_NoBilling` and `:Iif(T.APP_Billable, …)` are both rejected, for stored and
+  calculated members alike. Write `T.APP_Billable = True`. This matters because the server answers
+  only with a generic "An error occurred invoking", so the mistake costs several round trips to
+  find. `= True` also treats Null as false, which is usually what a condition wants (see Null above).
 - **Date ranges: begin inclusive, end exclusive.** September 2026 is
   `T.APP_BeginTime >= #2026-09-01# And T.APP_BeginTime < #2026-10-01#`. Both bounds test
   `APP_BeginTime` only, so an entry that starts before the range but ends inside it is not returned.
@@ -120,15 +125,29 @@ every projected expression that is *not* inside an aggregate becomes a grouping 
 From T In APP_Timesheet
 Where T.APP_BeginTime >= #2026-09-01# And T.APP_BeginTime < #2026-10-01#
 Select Top(100) New With {
-  .Project  = T.APP_Project.APP_Code,
-  .Hours    = Sum(T.APP_DurationInHours),
-  .Bookings = Count()
+  .ProjectId = :Iif(T.APP_Task = Null, T.APP_Project.APP_ProjectUuid, T.APP_Task.APP_Project.APP_ProjectUuid),
+  .Project   = :Iif(T.APP_Task = Null, T.APP_Project.APP_Fullname,   T.APP_Task.APP_Project.APP_Fullname),
+  .Hours     = Sum(T.APP_DurationInHours),
+  .Bookings  = Count()
 }
 ```
 
 Add one non-aggregated member and you add a grouping level — that is the usual cause of "why did
 I get 400 rows instead of 12". Order by a grouped expression, never by an aggregate. An aggregate
 in a sub-query over an empty relation returns **Null**, not 0.
+
+**Conditional totals** put `:Iif` inside the aggregate, so a total and a subset share one row:
+`.BillableHours = Sum(:Iif(T.APP_Billable = True, T.APP_DurationInHours, 0))`.
+
+**Which project a booking belongs to.** A booking carries both `APP_Project` and `APP_Task`, and
+time cockpit counts it for the *task's* project whenever a task is set. The two can disagree: moving
+a task to another project leaves its existing bookings pointing at the old one, and the product
+does not repair that. Project codes are not unique either — the same code appears under several
+customers. So group and filter by the effective project's UUID, as in the query above, and show
+`APP_Fullname` for humans. Grouping by `T.APP_Project…` or `T.APP_ProjectCodeActual` silently
+misattributes or merges projects. The customer works the same way via
+`…APP_Project.APP_Customer.APP_CustomerUuid`. Filter patterns, the back-reference caveat and a
+check for inconsistent bookings are in the cookbook.
 
 ## 7. Aggregate instead of paging
 
@@ -187,7 +206,8 @@ is true, say so before the numbers.
 Errors are deliberately terse and never echo the query. Walk this list:
 
 1. A rejected keyword or prefix — comment (`//`, `/* */`), `SYS_` token, `Skip`/`Take`,
-   an `APP_`-prefixed alias in `New With`, unbalanced parentheses or quotes.
+   an `APP_`-prefixed alias in `New With`, unbalanced parentheses or quotes, or a bare Boolean
+   used as a condition (§5).
 2. A property or entity that does not exist in **this** tenant — re-run `describe_entity` for both
    the source entity and every navigated relation. (The shipped `APP_Department` has only
    `APP_Code` and `APP_Description`, so `APP_Department.APP_Fullname` fails; a tenant may have
