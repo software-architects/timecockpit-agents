@@ -3,7 +3,7 @@ name: timecockpit-lists-and-actions
 description: Discovers and runs a time cockpit tenant's named lists (saved views) with get_lists, describe_list and execute_list, and its model actions with get_actions and execute_action, including the confirmation handshake for state-changing actions. Use when a user asks for a saved view or "the list we use for X", wants report-like data that already exists in the app, or wants to run a model action such as creating an invoice or closing a project.
 compatibility: Any agent connected to a time cockpit MCP server (remote or local host). All five tools depend on optional deployment capabilities and may be absent; execute_action is additionally unavailable in read-only sessions and execute_list and execute_action in own-data sessions.
 metadata:
-  version: "1.3"
+  version: "1.5"
 ---
 
 # time cockpit Lists and Actions
@@ -51,19 +51,24 @@ Only lists the acting user is permitted to see are returned.
 
 ### describe_list
 
-Reports the list's result `columns` and its declared `parameters` (mandatory/optional) without
-running the list — `rows` is always empty, because `describe_list` never returns data.
+Reports the list's result `columns` and its declared `parameters` (mandatory/optional). `rows` is
+always empty — `describe_list` never returns data. It does **not**, however, promise to leave the
+list unexecuted: deriving columns may require running the list under a 5-row cap.
 
-- On a **local** host, columns come straight from the list's own TCQL/script definition (parsed
-  and validated, never executed), so they are correctly typed even when the list currently
-  matches zero rows, and `parameters` is read from the list's filter form — the same source
-  `get_lists` uses, so the two tools never disagree about a list's parameters.
-- A **remote** host has no in-process access to a list's query/script text, so it falls back to a
-  small **5-row sample** execution: a column whose sampled value was null still comes back as
-  `Unknown`, an empty sample yields only the two stable columns (`objectUuid`, `displayValue`)
-  plus a warning, and `parameters` is always an empty map there — pass the parameters you intend
-  to use so the sample is representative. Check `warnings` either way; a sample-derived result
-  says so explicitly.
+- On a **local** host, a TCQL-backed list's columns come straight from its definition (parsed and
+  validated, never dispatched), so they are correctly typed even when the list currently matches
+  zero rows. A script-backed list's shape is taken from the script itself; if that fails, the host
+  falls back to a **5-row sample** execution and says so in `warnings`. `parameters` is read from
+  the list's filter form — the same source `get_lists` uses, so the two tools never disagree.
+- A **remote** host has no in-process access to a list's query/script text, so it **always** runs a
+  **5-row sample** execution: a column whose sampled value was null still comes back as `Unknown`,
+  an empty sample yields only the two stable columns (`objectUuid`, `displayValue`) plus a warning,
+  and `parameters` is always an empty map there — pass the parameters you intend to use so the
+  sample is representative.
+
+Check `warnings` either way; a sample-derived result says so explicitly. Treat `describe_list` as a
+cheap, capped read rather than a guaranteed no-op: on an unfamiliar script-backed list it may run
+the list's own signed script, so it can be slower than its "metadata" framing suggests.
 
 ### execute_list
 
@@ -183,6 +188,12 @@ entity before anything runs: unknown members, calculated or read-only members, t
 identifier, `SYS_*` members, and values of the wrong type are all rejected. That is why step 2
 below matters — take the member names from `describe_entity`, do not invent them.
 
+A parameter member whose `dataType` is **`Duration`** takes a **string** in
+`[-][d.]hh:mm[:ss[.fffffff]]` form — `"01:30:00"` for an hour and a half, `"1.00:00:00"` for a day.
+This is the spelling TCQL itself uses for a duration literal. A plain number is **rejected** (there
+is no duration-typed number in the model, so no unit could be assumed), and so is the ISO 8601
+spelling `"PT1H30M"`. The colon is required: `"5"` would otherwise mean five *days*.
+
 1. `get_actions` on the entity — or with no arguments when you are after a standalone action.
 2. `describe_entity` on `parameterEntity`, if the action declares one.
 3. Collect the record UUIDs — the `objectUuid` values from `execute_list`,
@@ -246,7 +257,8 @@ explain the operation *before* you call it rather than relying on the server to 
 | "could not be determined for this tenant" on `get_actions` / `execute_action` with no `entityName` | this deployment cannot resolve the standalone catalog — not a statement that none exist; use `get_actions` with an `entityName` |
 | action "is not available for entity" | the name is not in that entity's catalog — re-run `get_actions`, do not retry with a variant |
 | a parameter member rejected | it is unknown, calculated, read-only, the identifier, or the wrong type — re-read `describe_entity` on `parameterEntity` |
-| `describe_list` returns no columns | remote host only: the 5-row sample was empty; supply parameters that select data |
+| "Expected a duration string in [-][d.]hh:mm…" | a `Duration` parameter was sent as a number or as `"PT1H30M"` — resend it as `"01:30:00"` |
+| `describe_list` returns no columns | the 5-row sample was empty (remote host always samples; local host samples only as a script-list fallback); supply parameters that select data |
 | parameter rejected | key missing its `@`, or the value is an object or array |
 | `condition` rejected | it references a hidden entity or breaks a guardrail; narrow with parameters instead |
 | `truncated: true` | the row cap applied; narrow the request, do not stitch pages |

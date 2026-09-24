@@ -3,7 +3,7 @@ name: timecockpit-tcql
 description: Writes and runs read-only TCQL (Time Cockpit Query Language) queries through the MCP tool execute_tcql_query and interprets the TabularResult it returns. Use for ad-hoc data questions, reporting and totals across customers, projects, tasks, users or periods, for cross-entity lookups and resolving a record UUID from a code or name, and whenever a TCQL query was rejected, returned no rows, or came back with unexpected column names.
 compatibility: Requires a connected time cockpit MCP server (remote or local stdio host) exposing execute_tcql_query, get_entities and describe_entity. execute_tcql_query is hidden and rejected when the session is restricted to own data (Scope=OwnData) — use get_timesheets there instead. Tool names may carry a client prefix.
 metadata:
-  version: "1.1"
+  version: "1.2"
 ---
 
 # Time Cockpit TCQL
@@ -170,9 +170,10 @@ Never report a total computed from a `truncated: true` result.
   lookups and further queries, `.displayValue` for presentation. If `.displayValue` is `null` or
   absent, the related record was not loaded; resolve it with a follow-up query only if the user
   needs the name.
-- `count` is the number of rows returned, **not** the number of matches. `truncated: true` plus a
-  warning naming the row limit means data was left behind; a warning saying the total is unknown
-  means the result exactly filled the cap and may or may not be complete.
+- `count` is the number of rows returned, **not** the number of matches. `truncated` is exact: the
+  server reads one row past the cap to find out, so `truncated: true` (plus a warning naming the
+  row limit) always means data was left behind, and a result that exactly fills the cap is
+  reported as complete. There is no "may or may not be complete" case to hedge about.
 - Date/times are tenant-local wall clock with no offset (`2026-09-10T22:53:35`). Do not convert
   them, do not append `Z`. Durations are decimal hours.
 

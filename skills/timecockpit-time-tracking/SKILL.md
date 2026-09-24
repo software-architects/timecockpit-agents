@@ -1,9 +1,9 @@
 ---
 name: timecockpit-time-tracking
 description: Reviews, summarizes, and books a user's own working time in time cockpit over the connected MCP server. Use when someone asks what they worked on, wants a daily, weekly, or per-project summary of their hours, wants to find gaps, overlaps, or duplicate bookings in their timesheet, wants to book hours on a project or task, or wants to correct their recorded time.
-compatibility: Requires a connected time cockpit MCP server (remote or local stdio host) exposing get_current_user, get_timesheets and describe_entity. create_timesheet is hidden and rejected when the session runs with read-only access; execute_tcql_query is hidden when the session is restricted to own data.
+compatibility: Requires a connected time cockpit MCP server (remote or local stdio host) exposing get_current_user, get_timesheets and describe_entity. create_timesheet is hidden and rejected when the session runs with read-only access; execute_tcql_query is hidden when the session is restricted to own data. create_timesheet_suggestion is local-stdio-only today; remote support is pending, so the tool is absent from the remote server.
 metadata:
-  version: "1.2"
+  version: "1.4"
 ---
 
 # Time Cockpit Time Tracking
@@ -17,6 +17,7 @@ the session, it is not available for this user — say so instead of guessing a 
 | Who am I acting as | `get_current_user` |
 | Read timesheets | `get_timesheets` |
 | Book time | `create_timesheet` |
+| Propose a timesheet to other users (local stdio host only) | `create_timesheet_suggestion` |
 | Learn tenant-specific timesheet fields | `describe_entity` (`APP_Timesheet`) |
 | Resolve a project/task UUID from a code or name | `execute_tcql_query` (narrow, parameterized) |
 
@@ -158,3 +159,42 @@ Rules that are not negotiable:
   `timecockpit-record-management` skill; do not improvise CRUD here.
 - **Reporting across users, teams, customers, budgets, or billing** and anything needing free
   queries or named lists: `timecockpit-reporting` and `timecockpit-tcql`.
+
+## 8. Suggest a timesheet to someone else (local stdio host only)
+
+`create_timesheet_suggestion` proposes an **existing** timesheet to other users. It is available
+only on the local stdio MCP host today; on the remote server the tool is absent because each
+suggestion stores a snapshot of the proposed timesheet that no remote endpoint builds yet. Remote
+support is **pending** that endpoint, not ruled out. If the tool is not in the session's tool
+list, say so rather than looking for a workaround — and do not try to create
+the record yourself with `create_entity`: a suggestion without a valid snapshot cannot be opened or
+accepted by the receiver.
+
+What it does and does not do:
+
+- It writes one `APP_TimesheetSuggestion` record **per receiver**, each holding a snapshot of the
+  proposed timesheet plus an optional message. The receivers see a notification and accept or
+  dismiss the suggestion themselves.
+- It does **not** create a timesheet for anybody. Nothing lands in a receiver's calendar until they
+  accept. Say "I sent them a suggestion", never "I booked it for them".
+
+Workflow:
+
+1. Find or create the timesheet you want to propose (`get_timesheets`, or `create_timesheet` for
+   your own entry first) and note its `objectUuid`.
+2. Resolve each receiver's `APP_UserDetail` UUID. Never guess one — look it up, and read the
+   resolved names back to the user.
+3. Show the user the timesheet (date, times, project/task, description), the full receiver list by
+   name, and the message you intend to send. Get an explicit yes.
+4. Call it with `timesheetId`, `receiverUserDetailIds`, an optional `message` (max 4000
+   characters), and `confirmed=true`. Without `confirmed=true` the tool returns
+   `status: "confirmation_required"` and writes nothing — that is the gate, not an error.
+
+Reading the result: `count` is how many suggestion records were really written, `suggestions` lists
+`suggestionId` / `receiverUserDetailId`, and `truncated: true` means the list was shortened to fit
+the response limit while `count` still reports the true total. Report `count`, not the length of
+the list. The receiver count per call is capped by the server's row limit; split a larger group
+across several calls.
+
+The tool is a mutation: it is hidden and rejected in a read-only session, and it is hidden in
+own-data scope because it writes records addressed to other users.

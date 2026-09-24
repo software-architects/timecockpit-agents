@@ -3,7 +3,7 @@ name: timecockpit-model-discovery
 description: Explores a time cockpit tenant's customized data model over MCP with get_entities, describe_entity, get_environment and the local data model resources, and turns the result into technical names that actually exist. Use when a user asks which fields an entity has, how customers, projects, tasks and timesheets are related, what a tenant administrator customized, or before writing TCQL, a field projection, a list parameter, or any create, update or delete call.
 compatibility: Any agent connected to a time cockpit MCP server (remote HTTP host or local stdio host). The timecockpit:// resources and the get_resource fallback exist on the local host only.
 metadata:
-  version: "1.2"
+  version: "1.3"
 ---
 
 # time cockpit Model Discovery
@@ -49,7 +49,7 @@ Metadata is stable within a session: discover an entity once and reuse the resul
 | --- | --- |
 | `APP_` | shipped with time cockpit — `APP_Timesheet`, `APP_Project`, `APP_Task`, `APP_Customer`, `APP_UserDetail` |
 | `USR_` | added or defined by this tenant's administrator |
-| `SYS_` | internal; never exposed on any MCP surface |
+| `SYS_` | internal entities and members; never exposed by entity discovery, `describe_entity`, TCQL, CRUD or actions. The one carve-out is a *named list* whose own stored name happens to begin with `SYS_`: a list is a signed model artifact and is never screened by its name, so `get_lists` may report one on either host |
 
 - Primary keys follow `<EntityName>Uuid`: `APP_Timesheet` gives `APP_TimesheetUuid`.
   `describe_entity` reports it as `primaryKeyName`, and record rows also carry it as
@@ -59,8 +59,11 @@ Metadata is stable within a session: discover an entity once and reuse the resul
   entities, plus the `isCustom` properties on shipped entities.
 - Some model elements carry no prefix at all (action parameter entities in particular). Use the
   name exactly as the tool reported it; never normalize or "fix" it.
-- `label` is the caption users see and may be renamed or localized. Match the user's wording
-  against `label`, but always send `name` to the server.
+- `label` is the caption the model defines for an element. It is the **language-neutral** caption
+  on every surface (`get_entities`, `describe_entity`, and likewise `friendlyName` on `get_lists`
+  and `displayName` on `get_actions`), not a translation into the user's language — a tenant whose
+  desktop is German still sees English captions here. Match the user's wording against `label`
+  loosely, fall back to `name`, and always send `name` to the server.
 
 ## 3. Reading describe_entity
 
@@ -70,8 +73,11 @@ Metadata is stable within a session: discover an entity once and reuse the resul
 {
   "name": "APP_Timesheet", "primaryKeyName": "APP_TimesheetUuid",
   "displayPropertyName": "APP_Description",
+  "defaultListName": "APP_DefaultTimesheetList",
+  "description": "One booked time entry of one user ...",
   "properties": [
-    { "name": "APP_BeginTime", "dataType": "DateTime", "isRequired": true },
+    { "name": "APP_BeginTime", "dataType": "DateTime", "isRequired": true,
+      "description": "Authoritative start of the booking, always set. ..." },
     { "name": "APP_DurationInHours", "dataType": "Number", "isCalculated": true },
     { "name": "APP_Project", "dataType": "Relation", "isRelation": true, "relatedEntity": "APP_Project" },
     { "name": "USR_Billable", "dataType": "Boolean", "isCustom": true }
@@ -79,16 +85,39 @@ Metadata is stable within a session: discover an entity once and reuse the resul
 }
 ```
 
+- `description` — one or two sentences of usage guidance, on the entity and on properties. It says
+  what `label` cannot: which of several look-alike members actually applies, and when. Read it
+  before you pick between members that differ only by suffix — `APP_Timesheet` alone has four
+  `Number` rate members, four billing flags, and an `APP_BeginTime`/`APP_BeginTimeActual` pair whose
+  authority depends on `APP_IsDurationTimesheet`. Where a description contradicts your assumption,
+  the description wins; where it is absent, fall back to the structural flags below.
+  **Absence is normal, not an error and not a signal about the element.** Descriptions exist for
+  entities shipped with time cockpit and for the properties agents most often confuse; tenant-defined
+  (`USR_`) elements never carry one, because nothing is invented for them, and a shipped element may
+  simply not be covered yet. Never tell a user an element is undocumented, deprecated or unimportant
+  because it has no `description`, and never paraphrase a missing one into a guess of your own.
 - `isRelation` / `relatedEntity` — a navigation to another entity. This is how the model is
   connected; there is no separate relations list.
-- `isCalculated` — evaluated, not stored. Readable and queryable, never writable.
+- `isCalculated` — evaluated from a formula, not stored. Read it, query it, filter on it; never
+  put it in `data` on `create_entity`/`update_entity` or in an action's parameters. The server
+  rejects the write, so sending one costs a round trip and tells the user nothing. `isReadOnly` is
+  set for the same members and for any other member the model does not permit writing.
+- `dataType` on a calculated member is the type its formula returns, so a calculated hour count
+  reads as `Number` and a calculated day as `DateTime`. `Unknown` means the host could not
+  determine the type — treat the value as opaque rather than assuming a string.
 - `isBlob` — large binary or file content. Excluded from default projections; request it
   explicitly and only when the user actually needs it.
 - `isRequired` — must be supplied on create. `isDisplayProperty` backs the record's
-  `displayValue`. `isReadOnly` is populated by some hosts only, so treat a missing value as
-  unknown rather than as writable.
+  `displayValue`. `isReadOnly` is always true for a calculated member on both hosts; beyond that a
+  host may know of further non-writable members, so `false` means "nothing known against it"
+  rather than a guarantee.
 - `dataType` is a small logical set (`String`, `Number`, `Integer`, `Boolean`, `DateTime`,
   `Date`, `Time`, `Duration`, `Uuid`, `Relation`, `Binary`, `Unknown`), not a storage type.
+- `truncated` — true when the response limit shortened the answer; `warnings` says what was dropped.
+  A truncated result is **not** the entity's full property list, so do not conclude that a member is
+  missing from the model, and say so plainly rather than presenting a partial list as complete.
+  Descriptions are dropped before properties are, so a truncated result may name every member while
+  describing none.
 
 ## 4. Relations and how the domains connect
 
@@ -101,12 +130,17 @@ be used instead. Present relationships as navigation paths, naming the entity ea
 
 ## 5. Forms and lists are not part of describe_entity
 
-`describe_entity` reports data shape only. Default forms and lists are separate model artifacts:
-`get_lists` reports named lists with the `targetEntity` they read — that is how to find the
-saved views belonging to an entity (see `timecockpit-lists-and-actions`) — and on the local host
-a list's detail resource also names the form it opens for editing. Shipped artifacts follow
-patterns like `APP_DefaultTimesheetList` and `APP_TimesheetForm`, but confirm any such name
-through `get_lists` before using it.
+`describe_entity` reports data shape, plus one pointer into the list world: `defaultListName`,
+the list the model treats as this entity's default. When it is present, run that list rather than
+picking among the candidates — it is reported only if the caller may actually run it. It is absent
+when the model names no default, and it can also be absent on the remote host when the tenant's
+metadata does not carry it, so treat a missing value as "no default known", never as an error.
+
+Forms and the rest of the lists are separate model artifacts: `get_lists` reports named lists with
+the `targetEntity` they read — that is how to find the saved views belonging to an entity (see
+`timecockpit-lists-and-actions`) — and on the local host a list's detail resource also names the
+form it opens for editing. Shipped artifacts follow patterns like `APP_DefaultTimesheetList` and
+`APP_TimesheetForm`, but confirm any such name through `get_lists` before using it.
 
 ## 6. Local host only: model resources
 
@@ -162,8 +196,10 @@ Discovered names go straight into `timecockpit-tcql` (queries and filters),
 - `describe_entity` on an unknown, internal or hidden entity returns a not-found error pointing
   back at `get_entities`. Do not retry with spelling variants and do not guess a technical
   name — hidden entities (`SYS_*` plus a fixed set of shipped telemetry and notification
-  entities) are absent from every surface by design. Tell the user that data is not exposed
-  over MCP.
+  entities) are absent from every entity surface by design. Tell the user that data is not exposed
+  over MCP. (That screen is on *entities*. A named list is a signed artifact and is never hidden
+  for its name or its declared target, so `get_lists` may list one called `SYS_…` — identically on
+  both hosts.)
 - `get_entities` may report `truncated: true` when the response bound was reached; narrow with
   `nameContains` instead of assuming the model is that small.
 - Optional tools (`get_lists`, `describe_list`, `execute_list`, `get_actions`,
