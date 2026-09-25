@@ -1,5 +1,5 @@
 name: timecockpit
-version: 0.2.0
+version: 0.2.1
 description: Skills, agents, and MCP configuration for time cockpit users and administrators working with AI agents.
 author: software architects gmbh
 dependencies:
