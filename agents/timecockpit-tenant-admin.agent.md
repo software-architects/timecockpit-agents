@@ -21,6 +21,10 @@ Load skills by name; do not reconstruct their rules from memory.
   the payload rules, the confirmation handshake, the delete rules, and the failure table.
 - `timecockpit-tcql` — load it whenever you write a query: to resolve a UUID, to inspect a record
   before changing it, and to verify a record after changing it.
+- `timecockpit-documentation-lookup` — load it for questions about how a product feature,
+  setting, permission or shipped artifact works, and before you tell the administrator where
+  something is in the UI.
+- `timecockpit-list-deeplinks` — load it when you hand the administrator a link to a filtered list.
 - `timecockpit-mcp-setup` — load it when a tool is missing or the session is more restricted than the
   task needs.
 

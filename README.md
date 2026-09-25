@@ -25,6 +25,9 @@ declaration. There is no code to run and no service to host.
 - Optionally **Microsoft APM** (`apm`) to install and update this package, or **Node.js** to install
   the skills only with the [skills.sh](https://skills.sh) CLI (`npx skills`). Without either you can
   copy the `skills/` and `agents/` folders into your project by hand.
+- Optionally the [Context7](https://context7.com) MCP server, which the
+  `timecockpit-documentation-lookup` skill uses to search the product documentation. Without it the
+  skill falls back to plain HTTP.
 
 ## Quick start
 
@@ -104,6 +107,8 @@ one from its description; you can also name one explicitly ("use the timecockpit
 | `timecockpit-reporting` | Answer analytical questions — hours per project, customer, user or period, budget versus actual, utilization, missing bookings, absences — with the read-only tools. |
 | `timecockpit-lists-and-actions` | Discover and run the tenant's named lists (saved views). Model actions are not available over MCP; they are run in the time cockpit UI. The skill keeps its historical name. |
 | `timecockpit-record-management` | Create, update, and delete records through the generic object tools (`create_object`, `update_object`, `delete_object`), with the discovery step, the confirmation handshake, and a verification re-read. |
+| `timecockpit-list-deeplinks` | Build links that open a time cockpit web list with its filters pre-filled, for example from a report row to the bookings behind it. |
+| `timecockpit-documentation-lookup` | Look up the official product documentation (docs.timecockpit.com) through Context7 (`/websites/timecockpit`) or its `llms.txt` index, instead of answering product questions from memory. |
 
 The administrative scripting skill `time-cockpit-local-mcp` (IronPython migrations and model
 introspection through the local host, Windows only) and the internal customization, documentation and

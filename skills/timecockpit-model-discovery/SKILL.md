@@ -3,7 +3,7 @@ name: timecockpit-model-discovery
 description: Explores a time cockpit tenant's customized data model over MCP with get_entities, describe_entity, get_environment and the local data model resources, and turns the result into technical names that actually exist. Use when a user asks which fields an entity has, how customers, projects, tasks and timesheets are related, what a tenant administrator customized, or before writing TCQL, a field projection, a list parameter, or any create, update or delete call.
 compatibility: Any agent connected to a time cockpit MCP server (remote HTTP host or local stdio host). The timecockpit:// resources and the get_resource fallback exist on the local host only.
 metadata:
-  version: "1.4"
+  version: "1.5"
 ---
 
 # time cockpit Model Discovery
@@ -207,3 +207,6 @@ Discovered names go straight into `timecockpit-tcql` (queries and filters),
   tenant or session. Absence is a configuration fact, not an error.
 - Never invent a property to make an answer fit. Report what the model does contain, and offer
   the closest discovered alternative.
+- For what a shipped `APP_` entity, property or list is meant to do, look it up in the product
+  documentation (`timecockpit-documentation-lookup`). The documentation describes the shipped
+  model; the live metadata remains the authority for what this tenant has.

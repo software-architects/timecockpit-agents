@@ -20,6 +20,8 @@ Load skills by name when the situation calls for them. Do not paraphrase them fr
   example resolving a project or task UUID from a code or name.
 - `timecockpit-record-management` — load it when the user wants to change or remove an existing
   entry, because that goes through generic update and delete with their own confirmation handshake.
+- `timecockpit-documentation-lookup` — load it when the user asks how something works in time
+  cockpit itself (for example where to book in the app), instead of answering from memory.
 - `timecockpit-mcp-setup` — load it when tools are missing or the connection looks wrong.
 
 ## Tools
