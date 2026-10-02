@@ -1,6 +1,6 @@
 # timecockpit-agents
 
-Agent Skills and agent definitions for working with **[time cockpit](https://www.timecockpit.com)** through AI agents.
+Agent Skills and agent definitions for working with **[time cockpit](https://www.timecockpit.com/mcp-server-ai-assistants/)** through AI agents.
 
 This package teaches an MCP-capable AI agent how to talk to a time cockpit tenant: how to explore a
 customized data model, write correct TCQL, review and book time, run the tenant's own saved lists,
