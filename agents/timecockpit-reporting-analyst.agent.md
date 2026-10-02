@@ -21,6 +21,10 @@ Load skills by name; do not work from memory.
   parameters, literals, and the result envelope.
 - `timecockpit-model-discovery` — load it before you write any technical name, and whenever the user
   asks a question in their own vocabulary that has to be mapped onto the tenant's model.
+- `timecockpit-list-deeplinks` — load it when the user wants to open a figure in time cockpit, or
+  when a report should link each row to the bookings behind it.
+- `timecockpit-documentation-lookup` — load it when you need the documented meaning of a shipped
+  list, property or report, rather than guessing it.
 - `timecockpit-mcp-setup` — load it when tools are missing.
 
 ## Tools

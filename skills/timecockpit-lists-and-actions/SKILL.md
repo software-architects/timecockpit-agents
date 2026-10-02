@@ -3,7 +3,7 @@ name: timecockpit-lists-and-actions
 description: Discovers and runs a time cockpit tenant's named lists (saved views) with get_lists, describe_list and execute_list. Use when a user asks for a saved view or "the list we use for X", or wants report-like data that already exists in the app. Model actions are not available over MCP; when a user wants one run (for example creating an invoice or closing a project), direct them to the time cockpit UI.
 compatibility: Any agent connected to a time cockpit MCP server (remote or local host). All three tools depend on optional deployment capabilities and may be absent; execute_list is additionally unavailable in own-data sessions.
 metadata:
-  version: "2.0"
+  version: "2.1"
 ---
 
 # time cockpit Lists
@@ -165,4 +165,5 @@ model resources — read it when what the list counts is not obvious (`timecockp
 when no list fits), `timecockpit-time-tracking` (typed timesheet reads and writes),
 `timecockpit-record-management` (generic create, update, delete), `timecockpit-reporting`
 (turning results into figures), `timecockpit-mcp-setup` (connecting a client, access modes and
-scopes).
+scopes), `timecockpit-list-deeplinks` (a link that opens a list in the web app with its filters
+pre-filled), `timecockpit-documentation-lookup` (what a shipped list is documented to show).
