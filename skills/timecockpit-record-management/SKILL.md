@@ -118,6 +118,11 @@ call. Ask the user anyway — the handshake is the user's control, not the serve
 Because `changedFields` is only an echo, finish with a verification read: query the record by its
 UUID, compare the values that matter, and report what the tenant actually stores now.
 
+The data model's default values apply as in the web form: members you do not send can be filled from
+the ones you do (an invoice takes its address from the project's customer). Members you send are
+never overwritten. The verification read is where you see those values; mention any the user may not
+expect.
+
 ```
 describe_entity('APP_Project')
 execute_tcql_query("From C In APP_Customer Where C.APP_Code = @Code Select Top(1) New With { C.APP_CustomerUuid, C.APP_CompanyName }", { "@Code": "ACME" })
