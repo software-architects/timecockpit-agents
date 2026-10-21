@@ -154,6 +154,10 @@ Rules that are not negotiable:
   and confirm the duration matches what they approved.
 - On an error, nothing was created. Repeat the message, name the likely cause (closed project,
   same-day rule, missing project for a task, permission), and propose a corrected call.
+- A rejection by the data model's validation reads `The APP_Timesheet record was not saved because
+  it failed validation:` followed by one `- <message> (members: ...)` line per failed rule. The
+  members say which input to change: `APP_ProjectUuid` is `projectId`, `APP_TaskUuid` is `taskId`,
+  `APP_BeginTime`/`APP_EndTime` are the times, anything else is an `additionalFields` key.
 
 ## Out of scope — use the neighbouring skills
 

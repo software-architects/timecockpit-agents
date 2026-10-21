@@ -142,7 +142,7 @@ get_timesheets(from: '2026-04-01', to: '2026-04-02')
 | `is calculated or read-only` / `is the primary key` | Remove that key from `data`. |
 | `Relation member '...' must be a non-empty UUID or null` | You sent a code or name. Resolve the UUID first. |
 | `does not exist in this tenant's data model` | Typo, or the entity is hidden from MCP (system and internal entities are never writable). |
-| Validation or trigger error from the tenant | The model's own rule rejected the payload. Report the message; do not retry with altered values to get around it. |
+| `The <entity> record was not saved because it failed validation:` followed by `- <message> (members: ...)` lines | The model's own rule or a trigger rejected the record; nothing was written. Each line is one failed rule and the members it reads (relations as `<Relation>Uuid`). Report the messages, and correct only what the user confirms; do not retry with altered values to get around a rule. |
 | Permission denied | The acting user's role lacks write permission. Not fixable from the agent side. |
 | `create_object` / `update_object` / `delete_object` not offered at all | The session is `Access=ReadOnly`, or `Scope=OwnData` (generic CRUD is hidden there — use `create_timesheet`). Only the operator can change this; see `timecockpit-mcp-setup`. |
 | `not available in read-only mode` | Same cause, tool invoked directly. |
