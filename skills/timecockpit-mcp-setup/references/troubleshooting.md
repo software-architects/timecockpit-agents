@@ -15,11 +15,29 @@ cockpit tenant and user, the sandbox, and the access/scope settings the server a
 | Sign-in succeeds, every tool call returns `403` | The account authenticated but is not permitted: no time cockpit access for that user, or the requested scope was not granted. | Confirm the user can sign in to time cockpit normally. Then check the granted scope; if a client demands one explicitly, use the scope value in `client-configs.md`. |
 | Wrong person's data | You are signed in with a different work account than expected. | `get_current_user` and `entra_whoami`, then re-authenticate with the right account. |
 
+## Sign-in refused by time cockpit (remote host)
+
+When time cockpit refuses the sign-in for the account, tenant or sandbox, the remote server lists
+**no tools** and answers every call, `entra_whoami` included, with one message naming the reason.
+Read the code at its end, e.g. `(error: invalid_grant, AmbiguousTenantMapping)`, and act on it;
+retrying or calling other tools does not help until the configuration changes.
+
+| Code at the end of the message | Cause | Fix |
+|---|---|---|
+| `AmbiguousTenantMapping` | Your Entra tenant maps to more than one time cockpit tenant, so the server cannot pick one. | Set `X-tc-tenant-id: <tenant-id>`, or use `/tcTenantId/<tenant-id>` in the URL. Your administrator has the tenant id. |
+| `NoTenantMapping` | No time cockpit tenant is set up for sign-in with your Entra organization. | Not fixable from your side: your time cockpit administrator sets up Microsoft Entra sign-in for the tenant. |
+| `RequestedTenantNotAllowed` | The `tcTenantId` you set is not a tenant your Entra account can sign in to. | Check the tenant id; remove the setting if your account maps to exactly one tenant. |
+| `InvalidRequestedTenantId` | `tcTenantId` is not a GUID (a tenant name does not work). | Use the tenant id (GUID), or omit the setting. |
+| `UserNotAllowed` | The account is not linked to an active time cockpit user in that tenant (or the user or tenant is locked). | Confirm the user can sign in to time cockpit normally; the administrator links or unlocks the user. |
+| `SandboxNotAllowed` | The user has no sandbox access, or the tenant has no sandbox. | Ask the administrator for sandbox access, or remove `X-sandbox-environment` / `/sandboxEnvironment/test`. |
+| `InvalidSubjectToken` | time cockpit did not accept the Entra token. | Re-authenticate in the client; if it persists, contact the administrator. |
+| Other codes ("the MCP server's sign-in to time cockpit is misconfigured") | The server's own setup is wrong. | Nothing to change in your configuration; contact the administrator or support. |
+| No `tc` code, only `invalid_grant` | An older authority without error codes; the message then follows your request (sandbox refused, tenant refused, or no tenant determined). | Check the setting the message names. |
+
 ## Tenant, sandbox and settings routing
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Sign-in works but requests fail because the tenant is not uniquely mapped | Your Entra tenant maps to more than one time cockpit tenant, so the server cannot pick one. | Set `X-tc-tenant-id: <tenant-id>`, or use `/tcTenantId/<tenant-id>` in the URL. Your administrator has the tenant id. |
 | `404` with a message naming a setting | The setting was supplied twice — once as a header and once as a route segment. | Pick one form. Header *or* route, per setting. |
 | `404` `Unknown route parameter '...'` | A typo in a route segment key, or an odd number of segments (route settings are key/value pairs). | Use exactly `tcTenantId`, `sandboxEnvironment`, `profile`, `access`, `scope`, each followed by a value. |
 | `404` `Invalid value '...' for header 'X-access'` (or `X-scope`) | An unsupported value. `Access` accepts only `Default` / `ReadOnly`; `Scope` only `Default` / `OwnData`. | There is no `readwrite` and no `all`: omit the setting, or send `default`. Casing does not matter. |
