@@ -17,8 +17,8 @@ cockpit tenant and user, the sandbox, and the access/scope settings the server a
 
 ## Sign-in refused by time cockpit (remote host)
 
-When time cockpit refuses the sign-in for the account, tenant or sandbox, the remote server lists
-**no tools** and answers every call, `entra_whoami` included, with one message naming the reason.
+When time cockpit refuses the sign-in for the account, tenant or sandbox, the remote server still
+answers `ping`, but every other call, `entra_whoami` included, returns one message naming the reason.
 Read the code at its end, e.g. `(error: invalid_grant, AmbiguousTenantMapping)`, and act on it;
 retrying or calling other tools does not help until the configuration changes.
 
