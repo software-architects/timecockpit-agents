@@ -28,8 +28,10 @@ retrying or calling other tools does not help until the configuration changes.
 | `NoTenantMapping` | No time cockpit tenant is set up for sign-in with your Entra organization. | Not fixable from your side: your time cockpit administrator sets up Microsoft Entra sign-in for the tenant. |
 | `RequestedTenantNotAllowed` | The `tcTenantId` you set is not a tenant your Entra account can sign in to. | Check the tenant id; remove the setting if your account maps to exactly one tenant. |
 | `InvalidRequestedTenantId` | `tcTenantId` is not a GUID (a tenant name does not work). | Use the tenant id (GUID), or omit the setting. |
-| `UserNotAllowed` | The account is not linked to an active time cockpit user in that tenant (or the user or tenant is locked). | Confirm the user can sign in to time cockpit normally; the administrator links or unlocks the user. |
+| `UserNotAllowed` | The account is not linked to a usable time cockpit user in that tenant. | Confirm the user can sign in to time cockpit normally; the administrator links the account to the user. |
+| `UserInactive` | The account is linked, but the user or the tenant is locked or inactive. | Not fixable from your side: the administrator unlocks or reactivates the user. |
 | `SandboxNotAllowed` | The user has no sandbox access, or the tenant has no sandbox. | Ask the administrator for sandbox access, or remove `X-sandbox-environment` / `/sandboxEnvironment/test`. |
+| `UnknownSandboxEnvironment` | The sandbox setting is not `test`, the only sandbox environment. | Use `test`, or remove the setting to work in production. |
 | `InvalidSubjectToken` | time cockpit did not accept the Entra token. | Re-authenticate in the client; if it persists, contact the administrator. |
 | Other codes ("the MCP server's sign-in to time cockpit is misconfigured") | The server's own setup is wrong. | Nothing to change in your configuration; contact the administrator or support. |
 | No `tc` code, only `invalid_grant` | An older authority without error codes; the message then follows your request (sandbox refused, tenant refused, or no tenant determined). | Check the setting the message names. |
