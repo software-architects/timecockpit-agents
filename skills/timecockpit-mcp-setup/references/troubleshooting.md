@@ -18,9 +18,13 @@ cockpit tenant and user, the sandbox, and the access/scope settings the server a
 ## Sign-in refused by time cockpit (remote host)
 
 When time cockpit refuses the sign-in for the account, tenant or sandbox, the remote server lists
-**no tools** and answers every call, `entra_whoami` included, with one message naming the reason.
-Read the code at its end, e.g. `(error: invalid_grant, AmbiguousTenantMapping)`, and act on it;
-retrying or calling other tools does not help until the configuration changes.
+**only `ping` and `entra_whoami`**. Both descriptions start with "Sign-in to time cockpit was
+refused:" and the message naming the reason. `ping` still answers; `entra_whoami` and every other
+tool return that message. Read the code at its end, e.g. `(error: invalid_grant,
+AmbiguousTenantMapping)`, and act on it; retrying or calling other tools does not help until the
+configuration changes. The server remembers a refusal for about 30 seconds, so after a fix wait
+that long before you reconnect. A rejected Entra token (`InvalidSubjectToken`) is not remembered:
+signing in again takes effect at once.
 
 | Code at the end of the message | Cause | Fix |
 |---|---|---|
@@ -28,10 +32,12 @@ retrying or calling other tools does not help until the configuration changes.
 | `NoTenantMapping` | No time cockpit tenant is set up for sign-in with your Entra organization. | Not fixable from your side: your time cockpit administrator sets up Microsoft Entra sign-in for the tenant. |
 | `RequestedTenantNotAllowed` | The `tcTenantId` you set is not a tenant your Entra account can sign in to. | Check the tenant id; remove the setting if your account maps to exactly one tenant. |
 | `InvalidRequestedTenantId` | `tcTenantId` is not a GUID (a tenant name does not work). | Use the tenant id (GUID), or omit the setting. |
-| `UserNotAllowed` | The account is not linked to an active time cockpit user in that tenant (or the user or tenant is locked). | Confirm the user can sign in to time cockpit normally; the administrator links or unlocks the user. |
+| `UserNotAllowed` | The account is not linked to a time cockpit user in that tenant. | Confirm the user can sign in to time cockpit normally; the administrator links the Entra account to the user. |
+| `UserInactive` | The linked time cockpit user, or the tenant, is locked or inactive. | Not fixable from your side: the administrator unlocks or reactivates the user. |
 | `SandboxNotAllowed` | The user has no sandbox access, or the tenant has no sandbox. | Ask the administrator for sandbox access, or remove `X-sandbox-environment` / `/sandboxEnvironment/test`. |
+| `UnknownSandboxEnvironment` | The `sandboxEnvironment` value is not a sandbox; only `test` exists. | Use `test`, or remove the setting to work in production. |
 | `InvalidSubjectToken` | time cockpit did not accept the Entra token. | Re-authenticate in the client; if it persists, contact the administrator. |
-| Other codes ("the MCP server's sign-in to time cockpit is misconfigured") | The server's own setup is wrong. | Nothing to change in your configuration; contact the administrator or support. |
+| Other codes, including the server's own `McpToken...` codes ("the MCP server's sign-in to time cockpit is misconfigured") | The server's own setup is wrong, or time cockpit issued a token that does not match the request. | Nothing to change in your configuration; contact the administrator or support. |
 | No `tc` code, only `invalid_grant` | An older authority without error codes; the message then follows your request (sandbox refused, tenant refused, or no tenant determined). | Check the setting the message names. |
 
 ## Tenant, sandbox and settings routing

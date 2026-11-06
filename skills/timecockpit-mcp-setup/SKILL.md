@@ -125,11 +125,12 @@ route-segment URL form instead, and which clients' pre-registered-client-id supp
 Then read the tool list once and tell the user what they actually got, especially if something
 they expect is absent.
 
-If the remote host lists no tools at all and every call returns the same message — for example
-"time cockpit found more than one tenant for your Microsoft Entra account ... (error: invalid_grant,
-AmbiguousTenantMapping)" — time cockpit refused the sign-in for this account, tenant or sandbox.
-Nothing works until the configuration changes, so do not retry: relay the message and look the code
-up in `references/troubleshooting.md`.
+If the remote host lists only `ping` and `entra_whoami`, and their descriptions start with "Sign-in
+to time cockpit was refused:" followed by a message such as "time cockpit found more than one tenant
+for your Microsoft Entra account ... (error: invalid_grant, AmbiguousTenantMapping)", time cockpit
+refused the sign-in for this account, tenant or sandbox. `ping` still answers; `entra_whoami` and
+every other tool return the same message. Nothing else works until the configuration changes, so
+do not retry: relay the message and look the code up in `references/troubleshooting.md`.
 
 ## 7. "A tool is missing" is usually configuration
 
