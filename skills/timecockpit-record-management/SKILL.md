@@ -113,7 +113,12 @@ call. Ask the user anyway — the handshake is the user's control, not the serve
 | `id` | UUID of the record; on a create this is the new record's key |
 | `displayName` | display text where the host supplies one |
 | `changedFields` | echo of the property names **you sent**, not a server-side diff |
-| `warnings` | non-fatal remarks — always relay them |
+| `warnings` | non-fatal remarks — always relay them; see below for the dependent-defaults warning |
+
+A warning starting with "Dependent default values could not be applied" means the record was saved
+with the values you sent only: the host could not determine the members the data model would have
+filled from them (remote host only). Re-read the record, tell the user which defaulted members are
+empty, and set them with a confirmed `update_object` if the user wants them.
 
 Because `changedFields` is only an echo, finish with a verification read: query the record by its
 UUID, compare the values that matter, and report what the tenant actually stores now.

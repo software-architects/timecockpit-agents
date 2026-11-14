@@ -149,7 +149,8 @@ Rules that are not negotiable:
 `changedFields`, `warnings`.
 
 - `status: "completed"` plus an `id` means the entry exists. Report the id and the booked values.
-- Read `warnings` out loud; they are the tenant's own remarks about the record.
+- Read `warnings` out loud. "Dependent default values could not be applied" means the entry was
+  saved with the values sent only; re-read it and check the members the data model normally fills.
 - Verify by re-reading that day with `get_timesheets` before telling the user everything is fine,
   and confirm the duration matches what they approved.
 - On an error, nothing was created. Repeat the message, name the likely cause (closed project,
