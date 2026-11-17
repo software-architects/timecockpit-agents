@@ -145,11 +145,13 @@ form it opens for editing. Shipped artifacts follow patterns like `APP_DefaultTi
 ## 6. Local host only: model resources
 
 - `timecockpit://datamodel` — compact index of every visible entity with property, relation and
-  trigger counts, plus visible list and action names. The fastest whole-model overview.
+  trigger and validation rule counts (enabled and disabled each), plus visible list and action names. The fastest
+  whole-model overview.
 - `timecockpit://datamodel/lists/{listName}` and `.../actions/{actionName}` — full definitions,
   including query or script source. Action definitions are read-only model metadata here: model
   actions cannot be run over MCP on either host; the user runs them in the time cockpit UI.
-- `timecockpit://datamodel/entities/{entityName}/triggers/{triggerName}` — an enabled trigger.
+- `timecockpit://datamodel/entities/{entityName}/triggers/{triggerName}` — one trigger, enabled or
+  not; `disabled: true` means it does not run. Use it to check whether a trigger is active.
 - `timecockpit://currentUser`, `timecockpit://globalSettings` — the same records as
   `get_environment`'s `currentUser`/`globalSettings`: relation members are `{objectUuid,
   displayValue}` objects (not reduced to bare UUIDs), and credential-like members are omitted.
