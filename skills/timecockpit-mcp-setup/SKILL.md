@@ -162,10 +162,14 @@ OnCockpit.Admin.exe --mcp -c "<configuration-name>" --mcp-access readonly --mcp-
 `--mcp-confirmation` takes `Required` or `Disabled`. `--mcp` needs the configured data context, so
 it cannot be combined with `--no-data-context`, `--file`, `--action` or `--force-update`.
 
-`OnCockpit.Admin.exe` ships with the time cockpit desktop client. Its full path is in the
-`OnCockpitAdminBinary` environment variable; use `${OnCockpitAdminBinary}` (or `%OnCockpitAdminBinary%`
-in a shell) as the command in client configurations rather than a hard-coded path, because the
-updater changes the versioned install folder.
+`OnCockpit.Admin.exe` ships with the time cockpit desktop client. Its installer keeps the full path
+in the user environment variable `OnCockpitAdminBinary`, updated on every update; use the variable
+in client configurations rather than a hard-coded path, because the updater changes the versioned
+install folder. Claude Code takes `${OnCockpitAdminBinary}`, VS Code
+`${env:OnCockpitAdminBinary}`; clients that cannot expand it in `command` (Codex CLI, Claude
+Desktop) use `cmd` with `/v:on /c !OnCockpitAdminBinary!`; Codex also needs
+`env_vars = ["OnCockpitAdminBinary"]`, because it starts servers with a cleared environment.
+Restart the client after the desktop client has updated itself. Exact entries: `references/client-configs.md`.
 
 This host is a **trusted administrative** surface. `execute_script_literal` and
 `execute_script_file` run arbitrary IronPython against the live tenant with the desktop user's full

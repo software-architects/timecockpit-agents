@@ -101,8 +101,22 @@ Authenticate with `/mcp` inside the session, then pick `timecockpit`. Docs:
 
 No URL, no OAuth: the desktop client is already signed in. `-c` names an existing desktop
 configuration, which carries the tenant, sandbox and profile. The `OnCockpitAdminBinary`
-environment variable holds the full path to `OnCockpit.Admin.exe`; clients that do not expand
-`${VAR}` in `command` need the literal value of that variable instead (`echo %OnCockpitAdminBinary%`).
+environment variable holds the full path to `OnCockpit.Admin.exe`; the desktop client's installer
+sets it on install and on every update.
+
+Clients that do not expand an environment variable in `command` (Codex CLI, Claude Desktop) start
+the host through `cmd` instead, which reads the variable each time the server starts:
+
+```json
+"command": "cmd",
+"args": ["/v:on", "/c", "!OnCockpitAdminBinary!", "--mcp", "-c", "<configuration-name>"]
+```
+
+Use exactly this form. `cmd /c %OnCockpitAdminBinary%` splits a path with a space (a user name such
+as `Jane Doe`), and quoting it does not help because the client escapes the quotes. Do not paste the
+literal value of the variable either: it names a versioned install folder that the next update
+replaces. Do not use the launcher `%LOCALAPPDATA%\OnCockpitAdmin\OnCockpit.Admin.exe` outside the
+version folders: it exits right after starting the current version, so the client loses the server.
 
 ## Claude Desktop / claude.ai custom connector
 
@@ -157,12 +171,15 @@ for the remote host, or the local stdio host below, and report your VS Code vers
   "servers": {
     "timecockpit-local": {
       "type": "stdio",
-      "command": "${OnCockpitAdminBinary}",
+      "command": "${env:OnCockpitAdminBinary}",
       "args": ["--mcp", "-c", "<configuration-name>"]
     }
   }
 }
 ```
+
+VS Code only expands environment variables written as `${env:NAME}`; a bare
+`${OnCockpitAdminBinary}` is passed on literally and the server fails to start.
 
 ## GitHub Copilot CLI
 
@@ -212,6 +229,21 @@ codex mcp login timecockpit
 **Unconfirmed:** whether this client can be given the pre-registered client id. If `codex mcp
 login` fails with a dynamic-registration error, that is the cause. Docs:
 <https://developers.openai.com/codex/config-reference>
+
+Local stdio host: Codex does not expand environment variables in `command`, so start it through
+`cmd` (see the Claude Code local section for why exactly this form):
+
+```toml
+[mcp_servers.timecockpit-local]
+command = "cmd"
+args = ["/v:on", "/c", "!OnCockpitAdminBinary!", "--mcp", "-c", "<configuration-name>"]
+env_vars = ["OnCockpitAdminBinary"]
+```
+
+`env_vars` is required: Codex starts stdio servers with a cleared environment plus a small
+allowlist (`PATH`, `COMSPEC`, `SYSTEMROOT`, ...) and the names listed there, so without it `cmd`
+never sees the variable. `codex mcp add` only offers `--env KEY=VALUE`, which would hard-code the
+versioned path; edit `config.toml` instead.
 
 ## Cursor
 
