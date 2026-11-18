@@ -237,7 +237,13 @@ Local stdio host: Codex does not expand environment variables in `command`, so s
 [mcp_servers.timecockpit-local]
 command = "cmd"
 args = ["/v:on", "/c", "!OnCockpitAdminBinary!", "--mcp", "-c", "<configuration-name>"]
+env_vars = ["OnCockpitAdminBinary"]
 ```
+
+`env_vars` is required: Codex starts stdio servers with a cleared environment plus a small
+allowlist (`PATH`, `COMSPEC`, `SYSTEMROOT`, ...) and the names listed there, so without it `cmd`
+never sees the variable. `codex mcp add` only offers `--env KEY=VALUE`, which would hard-code the
+versioned path; edit `config.toml` instead.
 
 ## Cursor
 
